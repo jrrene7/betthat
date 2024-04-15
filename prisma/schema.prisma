@@ -6,6 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
 }
 
 datasource db {
@@ -14,52 +15,134 @@ datasource db {
 }
 
 
+model Account {
+  id                String  @id @default(cuid()) @map("_id")
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid()) @map("_id")
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model User {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  firstName  String
-  lastName   String?
-  age        Int?
-  email      String?
-  posts Post[]
-  betIds String[] @db.ObjectId
-  bets   Bet[] @relation(fields: [betIds], references: [id])
-  challengeIDs String[]   @db.ObjectId
-  challenges  Challenge[] @relation(fields: [challengeIDs], references: [id])
-  image      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
+  id            String    @id @default(cuid()) @map("_id")
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  accounts      Account[]
+  sessions      Session[]
+  video         Video[]
+  likes         Likes[]
+  comment       Comment[]
+  followers     Follow[]  @relation("followings")
+  followings    Follow[]  @relation("followers")
+  checked       Boolean   @default(false)
+
+  @@fulltext([name])
 }
 
-model Post {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+model VerificationToken {
+  id         String   @id @default(cuid()) @map("_id")
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Video {
+  id        String    @id @default(cuid()) @map("_id")
   title     String
-  content   String?
-  published Boolean  @default(false)
-  authorID String?   @db.ObjectId
-  author  User? @relation(fields: [authorID], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
+  videoUrl  String
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  width     Int
+  height    Int
+  thumbnail String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt()
+  likes     Likes[]
+  comment   Comment[]
+
+  @@fulltext([title])
 }
 
-model Bet {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  title String
-  description String
-  bettorIDs String[] @db.ObjectId
-  bettors   User[]   @relation(fields: [bettorIDs], references: [id])
-  challengeID String?   @db.ObjectId
-  challenge  Challenge? @relation(fields: [challengeID], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
+model Likes {
+  id String @id @default(cuid()) @map("_id")
+  video   Video?  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  videoId String?
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String?
 }
 
-model Challenge {
-  id      String   @id @default(auto()) @map("_id") @db.ObjectId
-  title    String
-  description String?
-  bettorIDs String[] @db.ObjectId
-  bettors   User[]   @relation(fields: [bettorIDs], references: [id])
-  bets   Bet[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
+model Follow {
+  id          String @id @default(cuid()) @map("_id")
+  followerId  String
+  followingId String
+  follower    User   @relation("followers", fields: [followerId], references: [id])
+  following   User   @relation("followings", fields: [followingId], references: [id])
 }
+
+model Comment {
+  id        String   @id @default(cuid()) @map("_id")
+  comment   String
+  video     Video    @relation(fields: [videoId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+  videoId   String
+  userId    String
+}
+
+// model Post {
+//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
+//   title     String
+//   content   String?
+//   published Boolean  @default(false)
+//   authorID String?   @db.ObjectId
+//   author  User? @relation(fields: [authorID], references: [id])
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @default(now())
+// }
+
+// model Bet {
+//   id          String     @id @default(auto()) @map("_id") @db.ObjectId
+//   title String
+//   description String
+//   bettorIDs String[] @db.ObjectId
+//   bettors   User[]   @relation(fields: [bettorIDs], references: [id])
+//   challengeID String?   @db.ObjectId
+//   challenge  Challenge? @relation(fields: [challengeID], references: [id])
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @default(now())
+// }
+
+// model Challenge {
+//   id      String   @id @default(auto()) @map("_id") @db.ObjectId
+//   title    String
+//   description String?
+//   bettorIDs String[] @db.ObjectId
+//   bettors   User[]   @relation(fields: [bettorIDs], references: [id])
+//   bets   Bet[]
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @default(now())
+// }

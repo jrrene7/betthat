@@ -1,8 +1,11 @@
+import { GetServerSideProps, GetServerSidePropsContext } from "next";
+import { getServerSession } from "next-auth";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Feedback from "src/icons/Feedback";
-import Logo from "src/icons/Logo";
+// import Logo from "src/icons/Logo";
 import { signInMethods } from "src/utils/constants";
+import { authOptions } from "./api/auth/[...nextauth]";
 
 export default function SignInPage() {
   return (
@@ -44,3 +47,29 @@ export default function SignInPage() {
     </div>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  console.log("++++++++++++: ", context);
+  console.log(context.req.headers);
+  const session = await getServerSession(context.req, context.res, authOptions);
+  const redirect = context.query.redirect || "/";
+
+  if (session?.user) {
+    return {
+      redirect: {
+        destination: redirect,
+        permanent: false,
+      },
+      props: {},
+    };
+  } else {
+    return {
+      props: {
+        session,
+        redirect,
+      },
+    };
+  }
+};

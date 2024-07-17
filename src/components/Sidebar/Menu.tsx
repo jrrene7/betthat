@@ -1,3 +1,4 @@
+import { Icons } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { FC } from "react";
@@ -12,9 +13,6 @@ export default function Menu() {
     </ul>
   );
 }
-export interface Icons {
-  color: string;
-} 
 
 interface Props {
   item: {

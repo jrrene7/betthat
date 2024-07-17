@@ -1,13 +1,14 @@
+import Tippy from "@tippyjs/react/headless";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { LazyLoadImage } from "react-lazy-load-image-component";
-import Login from "../../icons/Login";
-import Plus from "../../icons/Plus";
-import Tippy from "@tippyjs/react";
+import Login from "src/icons/Login";
+import Plus from "src/icons/Plus";
 import Dropdown from "./Dropdown";
 
 export default function HeaderAccount() {
   const { data } = useSession();
+  console.log(data);
 
   return (
     <div className="flex items-center">
@@ -31,18 +32,10 @@ export default function HeaderAccount() {
           </p>
         </Link>
       ) : (
-        <Tippy
-          interactive
-          placement="bottom-end"
-          render={() => <Dropdown userId={data?.user?.id} />}
-        >
+        <Tippy interactive placement="bottom-end" render={() => <Dropdown userId={data?.user?.id}/>}>
           <div className="ml-4 cursor-pointer">
             <div className="h-8 w-8">
-              <LazyLoadImage
-                src={data?.user?.image!}
-                className="rounded-full"
-                effect="opacity"
-              />
+              <LazyLoadImage src={data?.user?.image!} className="rounded-full" effect="opacity" />
             </div>
           </div>
         </Tippy>

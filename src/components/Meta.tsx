@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { BASE_URL } from "../utils";
+import { BASE_URL } from "src/utils";
 
 interface Props {
   title: string;

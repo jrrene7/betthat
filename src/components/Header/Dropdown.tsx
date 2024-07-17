@@ -1,10 +1,10 @@
-import Link from "next/link";
-import Logout from "../../icons/Logout";
-import Profile from "../../icons/Profile";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
+import Logout from "src/icons/Logout";
+import Profile from "src/icons/Profile";
 
 interface Props {
-  userId?: string;
+  userId?: String;
 }
 
 export default function Dropdown({ userId }: Props) {

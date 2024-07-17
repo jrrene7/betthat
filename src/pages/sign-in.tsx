@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Feedback from "src/icons/Feedback";
-// import Logo from "src/icons/Logo";
+import Logo from "src/icons/Logo";
 import { signInMethods } from "src/utils/constants";
 import { authOptions } from "./api/auth/[...nextauth]";
 
@@ -12,7 +12,7 @@ export default function SignInPage() {
     <div className="h-screen text-white">
       <div className="flex items-center justify-between p-4">
         <Link href="/">
-          LOGO
+          <Logo />
         </Link>
 
         <button className="flex items-center text-sm font-medium text-white hover:underline">
@@ -48,10 +48,8 @@ export default function SignInPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (
-  context: GetServerSidePropsContext
-) => {
-  console.log("++++++++++++: ", context);
+export const getServerSideProps: GetServerSideProps = async (context: GetServerSidePropsContext) => {
+  console.log("++++++++++++: ",context);
   console.log(context.req.headers);
   const session = await getServerSession(context.req, context.res, authOptions);
   const redirect = context.query.redirect || "/";
@@ -70,6 +68,6 @@ export const getServerSideProps: GetServerSideProps = async (
         session,
         redirect,
       },
-    };
+    }
   }
-};
+}

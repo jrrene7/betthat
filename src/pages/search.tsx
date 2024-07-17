@@ -29,7 +29,11 @@ export default function SearchPage({}: Props) {
             No videos found by keyword
           </h3>
           <div className="mt-5 grid grid-cols-3 gap-1 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            <VideoSmall />
+            <VideoSmall video={{
+              id: "",
+              title: "",
+              videoUrl: ""
+            }} />
           </div>
         </>
         {/* <>

@@ -8,7 +8,7 @@ import superjson from "superjson";
 const getBaseUrl = () => {
   if (typeof window !== "undefined") return "";
   if (PRODUCTION) return `https://${process.env.NEXTAUTH_URL}`;
-  return "http://localhost:3000";
+  return "https://betthat.vercel.app/";
 };
 
 export const trpc = createTRPCNext<AppRouter>({

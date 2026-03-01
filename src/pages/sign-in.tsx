@@ -7,7 +7,21 @@ import Logo from "src/icons/Logo";
 import { signInMethods } from "src/utils/constants";
 import { authOptions } from "./api/auth/[...nextauth]";
 
-export default function SignInPage() {
+interface Props {
+  redirect: string;
+}
+
+function normalizeRedirect(rawRedirect: string | string[] | undefined) {
+  const redirect = Array.isArray(rawRedirect) ? rawRedirect[0] : rawRedirect;
+
+  if (!redirect) return "/";
+  if (!redirect.startsWith("/")) return "/";
+  if (redirect.startsWith("//")) return "/";
+
+  return redirect;
+}
+
+export default function SignInPage({ redirect }: Props) {
   return (
     <div className="h-screen text-white">
       <div className="flex items-center justify-between p-4">
@@ -32,7 +46,7 @@ export default function SignInPage() {
             {signInMethods.map((item) => (
               <button
                 key={item.provider}
-                onClick={() => signIn(item.provider)}
+                onClick={() => signIn(item.provider, { callbackUrl: redirect })}
                 className="relative mb-4 flex w-full items-center justify-center border border-gray-600 px-4 py-2.5 last:mb-0"
               >
                 <div className="absolute left-4 top-[50%] translate-y-[-50%]">
@@ -48,11 +62,11 @@ export default function SignInPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context: GetServerSidePropsContext) => {
-  console.log("++++++++++++: ",context);
-  console.log(context.req.headers);
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context: GetServerSidePropsContext
+) => {
   const session = await getServerSession(context.req, context.res, authOptions);
-  const redirect = context.query.redirect || "/";
+  const redirect = normalizeRedirect(context.query.redirect);
 
   if (session?.user) {
     return {
@@ -60,14 +74,12 @@ export const getServerSideProps: GetServerSideProps = async (context: GetServerS
         destination: redirect,
         permanent: false,
       },
-      props: {},
     };
-  } else {
-    return {
-      props: {
-        session,
-        redirect,
-      },
-    }
   }
-}
+
+  return {
+    props: {
+      redirect,
+    },
+  };
+};

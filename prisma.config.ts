@@ -1,6 +1,13 @@
 import { defineConfig, env } from "prisma/config";
 
-(process as any).loadEnvFile?.();
+try {
+  (process as any).loadEnvFile?.();
+} catch (error: unknown) {
+  const err = error as NodeJS.ErrnoException;
+  if (err?.code !== "ENOENT") {
+    throw error;
+  }
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

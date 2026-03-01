@@ -1,10 +1,22 @@
-import { Follow, Likes } from "@prisma/client";
+import { Follow, Likes, Prisma } from "@prisma/client";
 import {
   protectedProcedure,
   publicProcedure,
   router,
 } from "src/server/trpc/trpc";
 import { z } from "zod";
+
+type FeedVideo = Prisma.VideoGetPayload<{
+  include: {
+    user: true;
+    _count: {
+      select: {
+        likes: true;
+        comment: true;
+      };
+    };
+  };
+}>;
 
 export const videoRouter = router({
   createVideo: protectedProcedure
@@ -34,7 +46,7 @@ export const videoRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const skip = input?.cursor || 0;
-      const videos = await ctx.prisma.video.findMany({
+      const videos: FeedVideo[] = await ctx.prisma.video.findMany({
         include: {
           user: true,
           _count: {
@@ -57,13 +69,15 @@ export const videoRouter = router({
           ctx.prisma.likes.findMany({
             where: {
               userId: ctx.session.user.id,
-              videoId: { in: videos.map((item) => item.id) },
+              videoId: { in: videos.map((item: FeedVideo) => item.id) },
             },
           }),
           ctx.prisma.follow.findMany({
             where: {
               followerId: ctx.session.user.id,
-              followingId: { in: videos.map((item) => item.user?.id!) },
+              followingId: {
+                in: videos.map((item: FeedVideo) => item.user?.id!),
+              },
             },
           }),
         ]);
@@ -71,12 +85,10 @@ export const videoRouter = router({
         follows = followedByMe;
       }
       return {
-        videos: videos.map((item) => ({
+        videos: videos.map((item: FeedVideo) => ({
           ...item,
           isLike: likes.some((like) => like.videoId === item.id),
-          isFollow: follows.some(
-            (follow) => follow.followingId === item.user?.id
-          ),
+          isFollow: follows.some((follow) => follow.followingId === item.user?.id),
         })),
         hasNextPage: videos.length < (input.limit || 5) ? true : false,
         nextSkip:
@@ -89,15 +101,15 @@ export const videoRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const skip = input?.cursor || 0;
-      const followings = await ctx.prisma.follow.findMany({
+      const followings: Follow[] = await ctx.prisma.follow.findMany({
         where: {
           followerId: ctx.session.user.id,
         },
-      })
-      const videos = await ctx.prisma.video.findMany({
+      });
+      const videos: FeedVideo[] = await ctx.prisma.video.findMany({
         where: {
-            userId: { in: followings.map((item) => item.followingId) },
-          },
+          userId: { in: followings.map((item: Follow) => item.followingId) },
+        },
         include: {
           user: true,
           _count: {
@@ -120,13 +132,15 @@ export const videoRouter = router({
           ctx.prisma.likes.findMany({
             where: {
               userId: ctx.session.user.id,
-              videoId: { in: videos.map((item) => item.id) },
+              videoId: { in: videos.map((item: FeedVideo) => item.id) },
             },
           }),
           ctx.prisma.follow.findMany({
             where: {
               followerId: ctx.session.user.id,
-              followingId: { in: videos.map((item) => item.user?.id!) },
+              followingId: {
+                in: videos.map((item: FeedVideo) => item.user?.id!),
+              },
             },
           }),
         ]);
@@ -134,12 +148,10 @@ export const videoRouter = router({
         follows = followedByMe;
       }
       return {
-        videos: videos.map((item) => ({
+        videos: videos.map((item: FeedVideo) => ({
           ...item,
           isLike: likes.some((like) => like.videoId === item.id),
-          isFollow: follows.some(
-            (follow) => follow.followingId === item.user?.id
-          ),
+          isFollow: follows.some((follow) => follow.followingId === item.user?.id),
         })),
         hasNextPage: videos.length < (input.limit || 5) ? true : false,
         nextSkip:

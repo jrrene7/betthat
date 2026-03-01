@@ -1,18 +1,29 @@
 import Upload from "src/icons/Upload";
 
 interface Props {
+  title: string;
   onDiscardUpload: () => void;
   onUploadVideo: (e: React.SyntheticEvent<HTMLFormElement>) => void;
   setTitle: (title: string) => void;
   isLoading: boolean;
 }
 
-export default function SubmitVideo({ setTitle, isLoading, onUploadVideo, onDiscardUpload }: Props) {
+export default function SubmitVideo({
+  title,
+  setTitle,
+  isLoading,
+  onUploadVideo,
+  onDiscardUpload,
+}: Props) {
   return (
     <form onSubmit={onUploadVideo} className="mt-5 w-full flex-1 md:ml-6 md:mt-0">
       <div className="mb-6 w-full">
         <label className="block text-[16px] font-semibold">Title</label>
-        <input onChange={e => setTitle(e.target.value)} className="mt-4 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white" />
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-4 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
+        />
       </div>
       <div className="mb-6 w-full">
         <label className="block text-[16px] font-semibold">Cover</label>

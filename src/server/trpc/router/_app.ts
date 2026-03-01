@@ -3,12 +3,18 @@ import { likeRouter } from "./like";
 import { followRouter } from "./follow";
 import { videoRouter } from "./video";
 import { commentRouter } from "./comment";
+import { postRouter } from "./post";
+import { betRouter } from "./bet";
+import { challengeRouter } from "./challenge";
 
 export const appRouter = router({
     like: likeRouter,
     follow: followRouter,
     video: videoRouter,
     comment: commentRouter,
+    post: postRouter,
+    bet: betRouter,
+    challenge: challengeRouter,
 });
 
 // export type definition of API

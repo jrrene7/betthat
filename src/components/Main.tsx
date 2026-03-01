@@ -1,7 +1,9 @@
 import VideoItem from "src/components/Video/VideoItem";
 import { trpc } from "src/utils/trpc";
+import { RouterOutputs } from "src/utils/trpc";
 
 interface Props {}
+type FeedVideo = RouterOutputs["video"]["getVideo"]["videos"][number];
 
 export default function Main({}: Props) {
   const { data, isLoading, isError } = trpc.video.getVideo.useQuery({
@@ -17,7 +19,7 @@ export default function Main({}: Props) {
         {!isLoading && !isError && data?.videos.length === 0 && (
           <p className="py-8 text-sm text-gray-400">No videos yet.</p>
         )}
-        {data?.videos.map((video) => (
+        {data?.videos.map((video: FeedVideo) => (
           <VideoItem key={video.id} video={video} />
         ))}
       </div>

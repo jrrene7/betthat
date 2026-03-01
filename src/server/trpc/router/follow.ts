@@ -1,9 +1,10 @@
+import { Follow } from "@prisma/client";
 import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
 
 export const followRouter = router({
   getAccountFollowing: protectedProcedure.query(async ({ ctx }) => {
-    const followings = await ctx.prisma.follow.findMany({
+    const followings: Follow[] = await ctx.prisma.follow.findMany({
       where: {
         followerId: ctx.session.user.id,
       },
@@ -14,7 +15,7 @@ export const followRouter = router({
    const accounts = await ctx.prisma.user.findMany({
       where: {
         id: {
-          in: followings.map((item) => item.followingId),
+          in: followings.map((item: Follow) => item.followingId),
         },
       },
       include: {

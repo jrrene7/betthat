@@ -1,6 +1,7 @@
 import Link from "next/link";
 import HeartRed from "src/icons/HeartRed";
 import Message from "src/icons/Message";
+import { getCloudinaryPlaybackUrl } from "src/utils/cloudinary";
 
 interface Props {
   videoId: string;
@@ -9,7 +10,12 @@ interface Props {
   commentCount: number;
 }
 
-export default function VideoPlayer({ videoId, videoUrl, likes, commentCount }: Props) {
+export default function VideoPlayer({
+  videoId,
+  videoUrl,
+  likes,
+  commentCount,
+}: Props) {
   const isFlipped = false;
 
   return (
@@ -23,7 +29,7 @@ export default function VideoPlayer({ videoId, videoUrl, likes, commentCount }: 
         } relative max-w-full overflow-hidden rounded-md bg-[#222]`}
       >
         <video
-          src={videoUrl}
+          src={getCloudinaryPlaybackUrl(videoUrl)}
           loop
           muted
           playsInline

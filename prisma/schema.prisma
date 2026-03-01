@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["fullTextIndex"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -52,6 +51,12 @@ model User {
   video         Video[]
   likes         Likes[]
   comment       Comment[]
+  posts         Post[]    @relation("PostAuthor")
+  betsCreated   Bet[]     @relation("BetCreator")
+  betsReceived  Bet[]     @relation("BetOpponent")
+  betsWon       Bet[]     @relation("BetWinner")
+  challenges    Challenge[] @relation("ChallengeCreator")
+  challengeParticipations ChallengeParticipant[]
   followers     Follow[]  @relation("followings")
   followings    Follow[]  @relation("followers")
   checked       Boolean   @default(false)
@@ -81,6 +86,7 @@ model Video {
   updatedAt DateTime  @updatedAt()
   likes     Likes[]
   comment   Comment[]
+  posts     Post[]
 
   @@fulltext([title])
 }
@@ -113,36 +119,95 @@ model Comment {
   userId    String
 }
 
-// model Post {
-//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-//   title     String
-//   content   String?
-//   published Boolean  @default(false)
-//   authorID String?   @db.ObjectId
-//   author  User? @relation(fields: [authorID], references: [id])
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @default(now())
-// }
+model Post {
+  id          String   @id @default(cuid()) @map("_id")
+  title       String?
+  content     String
+  isPublished Boolean  @default(true)
+  authorId    String
+  author      User     @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  videoId     String?
+  video       Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt()
 
-// model Bet {
-//   id          String     @id @default(auto()) @map("_id") @db.ObjectId
-//   title String
-//   description String
-//   bettorIDs String[] @db.ObjectId
-//   bettors   User[]   @relation(fields: [bettorIDs], references: [id])
-//   challengeID String?   @db.ObjectId
-//   challenge  Challenge? @relation(fields: [challengeID], references: [id])
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @default(now())
-// }
+  @@index([authorId])
+  @@index([videoId])
+}
 
-// model Challenge {
-//   id      String   @id @default(auto()) @map("_id") @db.ObjectId
-//   title    String
-//   description String?
-//   bettorIDs String[] @db.ObjectId
-//   bettors   User[]   @relation(fields: [bettorIDs], references: [id])
-//   bets   Bet[]
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @default(now())
-// }
+model Bet {
+  id          String     @id @default(cuid()) @map("_id")
+  title       String
+  description String?
+  status      BetStatus  @default(PENDING)
+  creatorId   String
+  creator     User       @relation("BetCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  opponentId  String
+  opponent    User       @relation("BetOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+  winnerId    String?
+  winner      User?      @relation("BetWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  challengeId String?
+  challenge   Challenge? @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  dueAt       DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt()
+
+  @@index([creatorId])
+  @@index([opponentId])
+  @@index([winnerId])
+  @@index([challengeId])
+  @@index([status])
+}
+
+model Challenge {
+  id          String                 @id @default(cuid()) @map("_id")
+  title       String
+  description String?
+  status      ChallengeStatus        @default(OPEN)
+  creatorId   String
+  creator     User                   @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  participants ChallengeParticipant[]
+  bets        Bet[]
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt()
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model ChallengeParticipant {
+  id          String                   @id @default(cuid()) @map("_id")
+  challengeId String
+  challenge   Challenge                @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        ChallengeParticipantRole @default(PARTICIPANT)
+  joinedAt    DateTime                 @default(now())
+
+  @@unique([challengeId, userId])
+  @@index([userId])
+}
+
+enum BetStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  ACTIVE
+  SETTLED
+  CANCELLED
+}
+
+enum ChallengeStatus {
+  OPEN
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ChallengeParticipantRole {
+  CREATOR
+  PARTICIPANT
+}

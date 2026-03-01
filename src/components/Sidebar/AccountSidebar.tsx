@@ -2,11 +2,14 @@ import { useSession } from "next-auth/react";
 import AccountSidebarItem from "src/components/Sidebar/AccountSidebarItem";
 import { Account } from "src/types";
 import { trpc } from "src/utils/trpc";
+import { RouterOutputs } from "src/utils/trpc";
 
 interface Props {
   title: "Suggested accounts" | "Following accounts";
   type: "getAccountSuggestion" | "getAccountFollowing";
 }
+
+type SidebarAccount = RouterOutputs["follow"]["getAccountSuggestion"]["accounts"][number];
 
 export default function AccountSidebar({ title, type }: Props) {
   const { data: session } = useSession();
@@ -29,7 +32,7 @@ export default function AccountSidebar({ title, type }: Props) {
     <div className="border-t border-[#484848] py-4">
       <h3 className="mb-2 hidden px-2 text-sm font-medium lg:block">{title}</h3>
       <div>
-        {data?.accounts.map((item) => (
+        {data?.accounts.map((item: SidebarAccount) => (
           <AccountSidebarItem key={item.id} account={item as Account} />
         ))}
       </div>

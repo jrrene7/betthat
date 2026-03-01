@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { LazyLoadImage } from "react-lazy-load-image-component";
+import { getCloudinaryPosterUrl } from "src/utils/cloudinary";
 
 interface Props {
   video: {
-    id: string,
-    title: string,
-    videoUrl: string,
-  }
+    id: string;
+    title: string;
+    videoUrl: string;
+  };
 }
 
 export default function VideoSmall({ video }: Props) {
-  const poster = `${video?.videoUrl?.split('.mp4')[0]}.jpg`;
+  const poster = getCloudinaryPosterUrl(video?.videoUrl);
+
   return (
     <Link className="block" href={`/video/${video.id}`}>
       <div className="relative">

@@ -16,34 +16,41 @@ export default function SubmitVideo({
   onDiscardUpload,
 }: Props) {
   return (
-    <form onSubmit={onUploadVideo} className="mt-5 w-full flex-1 md:ml-6 md:mt-0">
-      <div className="mb-6 w-full">
-        <label className="block text-[16px] font-semibold">Title</label>
+    <form onSubmit={onUploadVideo} className="flex flex-col gap-5">
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">Title</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-4 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
+          placeholder="Give your video a title"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
         />
       </div>
-      <div className="mb-6 w-full">
-        <label className="block text-[16px] font-semibold">Cover</label>
-        <div className="mt-4 h-[168px] w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white">
-          <div className="flex h-full w-[85px] items-center justify-center rounded-sm bg-[#222]">
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">Cover</label>
+        <div className="mt-2 flex h-[120px] w-full items-center gap-3 rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3">
+          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-md bg-[#2a2a2a] text-gray-500">
             <Upload />
           </div>
+          <p className="text-xs text-gray-500">Auto-generated from video</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+
+      <div className="flex gap-3 pt-2">
         <button
           disabled={isLoading}
           onClick={onDiscardUpload}
           type="button"
-          className="w-full rounded-sm border border-[rgba(255,255,255,0.75)] bg-transparent px-4 py-2 text-sm font-semibold text-white"
+          className="flex-1 rounded-lg border border-[#3f3f3f] bg-transparent px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] disabled:opacity-50"
         >
           Discard
         </button>
-        <button className="w-full rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white">
-          Upload
+        <button
+          disabled={isLoading}
+          className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
+        >
+          {isLoading ? "Uploading..." : "Upload"}
         </button>
       </div>
     </form>

@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -51,15 +48,17 @@ model User {
   video         Video[]
   likes         Likes[]
   comment       Comment[]
-  posts         Post[]    @relation("PostAuthor")
-  betsCreated   Bet[]     @relation("BetCreator")
-  betsReceived  Bet[]     @relation("BetOpponent")
-  betsWon       Bet[]     @relation("BetWinner")
-  challenges    Challenge[] @relation("ChallengeCreator")
+  posts         Post[]         @relation("PostAuthor")
+  postLikes     PostLike[]
+  postComments  PostComment[]
+  betsCreated   Bet[]          @relation("BetCreator")
+  betsReceived  Bet[]          @relation("BetOpponent")
+  betsWon       Bet[]          @relation("BetWinner")
+  challenges    Challenge[]    @relation("ChallengeCreator")
   challengeParticipations ChallengeParticipant[]
-  followers     Follow[]  @relation("followings")
-  followings    Follow[]  @relation("followers")
-  checked       Boolean   @default(false)
+  followers     Follow[]       @relation("followings")
+  followings    Follow[]       @relation("followers")
+  checked       Boolean        @default(false)
 
   @@fulltext([name])
 }
@@ -92,8 +91,7 @@ model Video {
 }
 
 model Likes {
-  id String @id @default(cuid()) @map("_id")
-
+  id      String  @id @default(cuid()) @map("_id")
   video   Video?  @relation(fields: [videoId], references: [id], onDelete: Cascade)
   videoId String?
   user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -120,19 +118,47 @@ model Comment {
 }
 
 model Post {
-  id          String   @id @default(cuid()) @map("_id")
+  id          String        @id @default(cuid()) @map("_id")
   title       String?
   content     String
-  isPublished Boolean  @default(true)
+  isPublished Boolean       @default(true)
   authorId    String
-  author      User     @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  author      User          @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   videoId     String?
-  video       Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt()
+  video       Video?        @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  likes       PostLike[]
+  comments    PostComment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt()
 
   @@index([authorId])
   @@index([videoId])
+}
+
+model PostLike {
+  id     String @id @default(cuid()) @map("_id")
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        String   @id @default(cuid()) @map("_id")
+  content   String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+
+  @@index([postId])
+  @@index([userId])
 }
 
 model Bet {
@@ -161,18 +187,18 @@ model Bet {
 }
 
 model Challenge {
-  id          String                 @id @default(cuid()) @map("_id")
-  title       String
-  description String?
-  status      ChallengeStatus        @default(OPEN)
-  creatorId   String
-  creator     User                   @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  id           String                 @id @default(cuid()) @map("_id")
+  title        String
+  description  String?
+  status       ChallengeStatus        @default(OPEN)
+  creatorId    String
+  creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   participants ChallengeParticipant[]
-  bets        Bet[]
-  startsAt    DateTime?
-  endsAt      DateTime?
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt()
+  bets         Bet[]
+  startsAt     DateTime?
+  endsAt       DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt()
 
   @@index([creatorId])
   @@index([status])

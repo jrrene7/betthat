@@ -1,7 +1,7 @@
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { getServerSession } from "next-auth";
 import Info from "src/components/Account/Info";
-import VideoList from "src/components/Account/VideoList";
+import ProfileTabs from "src/components/Account/ProfileTabs";
 import AppLayout from "src/layouts/AppLayout";
 import { authOptions } from "../api/auth/[...nextauth]";
 import { prisma } from "src/server/db/client";
@@ -18,7 +18,7 @@ export default function ProfilePage({ profile, isFollow }: Props) {
       <div className="mt-5 w-full">
         <Info profile={profile} isFollow={isFollow} />
         <div className="mt-5 w-full">
-          <VideoList profile={profile} />
+          <ProfileTabs profile={profile} />
         </div>
       </div>
     </AppLayout>

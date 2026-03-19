@@ -1,6 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "src/server/trpc/trpc";
+import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
+
+const postInclude = {
+  author: true,
+  video: true,
+  _count: { select: { likes: true, comments: true } },
+} as const;
 
 export const postRouter = router({
   createPost: protectedProcedure
@@ -26,15 +32,9 @@ export const postRouter = router({
 
       if (videoId) {
         const ownedVideo = await ctx.prisma.video.findFirst({
-          where: {
-            id: videoId,
-            userId: ctx.session.user.id,
-          },
-          select: {
-            id: true,
-          },
+          where: { id: videoId, userId: ctx.session.user.id },
+          select: { id: true },
         });
-
         if (!ownedVideo) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -51,12 +51,96 @@ export const postRouter = router({
           authorId: ctx.session.user.id,
           videoId,
         },
-        include: {
-          author: true,
-          video: true,
-        },
+        include: postInclude,
       });
 
       return { post };
+    }),
+
+  getPosts: publicProcedure
+    .input(
+      z.object({
+        skip: z.number().default(0),
+        limit: z.number().default(10),
+        authorId: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const posts = await ctx.prisma.post.findMany({
+        where: {
+          isPublished: true,
+          ...(input.authorId ? { authorId: input.authorId } : {}),
+        },
+        include: postInclude,
+        orderBy: { createdAt: "desc" },
+        skip: input.skip,
+        take: input.limit,
+      });
+
+      let likedPostIds = new Set<string>();
+      if (ctx.session?.user && posts.length > 0) {
+        const likes = await ctx.prisma.postLike.findMany({
+          where: {
+            userId: ctx.session.user.id,
+            postId: { in: posts.map((p) => p.id) },
+          },
+          select: { postId: true },
+        });
+        likedPostIds = new Set(likes.map((l) => l.postId));
+      }
+
+      return {
+        posts: posts.map((p) => ({ ...p, isLike: likedPostIds.has(p.id) })),
+      };
+    }),
+
+  likePost: protectedProcedure
+    .input(z.object({ postId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.prisma.postLike.findUnique({
+        where: {
+          postId_userId: { postId: input.postId, userId: ctx.session.user.id },
+        },
+      });
+
+      if (existing) {
+        await ctx.prisma.postLike.delete({ where: { id: existing.id } });
+        return { liked: false };
+      }
+
+      await ctx.prisma.postLike.create({
+        data: { postId: input.postId, userId: ctx.session.user.id },
+      });
+      return { liked: true };
+    }),
+
+  commentOnPost: protectedProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+        content: z.string().trim().min(1).max(1000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.postComment.create({
+        data: {
+          postId: input.postId,
+          userId: ctx.session.user.id,
+          content: input.content.trim(),
+        },
+        include: { user: true },
+      });
+      return { comment };
+    }),
+
+  getPostComments: publicProcedure
+    .input(z.object({ postId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const comments = await ctx.prisma.postComment.findMany({
+        where: { postId: input.postId },
+        include: { user: true },
+        orderBy: { createdAt: "asc" },
+      });
+      return { comments };
     }),
 });

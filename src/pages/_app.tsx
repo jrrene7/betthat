@@ -6,18 +6,24 @@ import "react-lazy-load-image-component/src/effects/opacity.css";
 import "src/styles/globals.css";
 import NextNProgress from "nextjs-progressbar";
 import { trpc } from "src/utils/trpc";
+import { UploadModalProvider } from "src/context/UploadModalContext";
+import UploadModal from "src/components/Upload/UploadModal";
+
 interface Props {
   session: Session;
 }
-function MyApp({ Component, pageProps: { session, ...pageProps} }: AppProps<Props>) {
+
+function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps<Props>) {
   return (
     <SessionProvider session={session}>
-      <NextNProgress options={{ showSpinner: false}}/>
-      <Component {...pageProps} />
-      <Toaster />
+      <UploadModalProvider>
+        <NextNProgress options={{ showSpinner: false }} />
+        <Component {...pageProps} />
+        <UploadModal />
+        <Toaster />
+      </UploadModalProvider>
     </SessionProvider>
-  )
+  );
 }
-
 
 export default trpc.withTRPC(MyApp);

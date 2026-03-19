@@ -1,5 +1,5 @@
 export interface Icons {
-  color: string;
+  color?: string;
 }
 
 export interface User {

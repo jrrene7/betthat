@@ -1,7 +1,9 @@
+import Bell from "src/icons/Bell";
 import Facebook from "src/icons/Facebook";
 import Following from "src/icons/Following";
 import Google from "src/icons/Google";
 import Home from "src/icons/Home";
+import Plus from "src/icons/Plus";
 
 export const meta = {
   title: "Bet That | Bet on anything",
@@ -36,5 +38,15 @@ export const menus = [
     name: "Following",
     href: "/following",
     icons: Following,
+  },
+  {
+    name: "Create",
+    href: "/upload",
+    icons: Plus,
+  },
+  {
+    name: "Inbox",
+    href: "/inbox",
+    icons: Bell,
   },
 ];

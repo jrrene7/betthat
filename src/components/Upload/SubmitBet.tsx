@@ -1,6 +1,9 @@
+import { LazyLoadImage } from "react-lazy-load-image-component";
+
 interface AccountOption {
   id: string;
   name: string | null;
+  image?: string | null;
 }
 
 interface Props {
@@ -33,70 +36,96 @@ export default function SubmitBet({
   onBetDueAtChange,
 }: Props) {
   return (
-    <form onSubmit={onCreateBet} className="mt-6 w-full">
-      <div className="mb-4">
-        <label className="block text-sm font-semibold">Bet title</label>
+    <form onSubmit={onCreateBet} className="flex flex-col gap-5">
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">Bet</label>
         <input
           value={betTitle}
           onChange={(e) => onBetTitleChange(e.target.value)}
           maxLength={150}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
-          placeholder="Example: Knicks beat Celtics this Friday"
+          placeholder="e.g. Knicks beat Celtics this Friday"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-semibold">Description (optional)</label>
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Conditions <span className="font-normal text-gray-500">(optional)</span>
+        </label>
         <textarea
           value={betDescription}
           onChange={(e) => onBetDescriptionChange(e.target.value)}
-          rows={4}
+          rows={3}
           maxLength={5000}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
-          placeholder="Bet conditions..."
+          placeholder="Describe the terms and conditions of the bet..."
+          className="mt-2 w-full resize-none rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-semibold">Choose opponent</label>
-        <select
-          value={betOpponentId}
-          onChange={(e) => onBetOpponentChange(e.target.value)}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-[#222] p-2 text-sm text-white"
-        >
-          <option value="">Select a user</option>
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name ?? "Unknown"}
-            </option>
-          ))}
-        </select>
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">Opponent</label>
+        <div className="mt-2 max-h-[220px] overflow-y-auto rounded-lg border border-[#3f3f3f] bg-[#1a1a1a]">
+          {accounts.length === 0 && (
+            <p className="px-4 py-3 text-sm text-gray-500">No users available.</p>
+          )}
+          {accounts.map((account) => {
+            const isSelected = betOpponentId === account.id;
+            return (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => onBetOpponentChange(isSelected ? "" : account.id)}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-[#2a2a2a] ${
+                  isSelected ? "bg-primary/10 text-white" : "text-gray-300"
+                }`}
+              >
+                <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[#2a2a2a]">
+                  {account.image && (
+                    <LazyLoadImage
+                      src={account.image}
+                      className="h-full w-full object-cover"
+                      effect="opacity"
+                    />
+                  )}
+                </div>
+                <span className="flex-1 font-medium">{account.name ?? "Unknown"}</span>
+                {isSelected && (
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" className="text-primary">
+                    <path d="M20 6L9 17l-5-5 1.41-1.41L9 14.17l9.59-9.59L20 6z" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mb-6">
-        <label className="block text-sm font-semibold">Due date (optional)</label>
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Due date <span className="font-normal text-gray-500">(optional)</span>
+        </label>
         <input
           type="datetime-local"
           value={betDueAt}
           onChange={(e) => onBetDueAtChange(e.target.value)}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex gap-3 pt-2">
         <button
           disabled={isLoading}
           type="button"
           onClick={onDiscardBet}
-          className="w-full rounded-sm border border-[rgba(255,255,255,0.75)] bg-transparent px-4 py-2 text-sm font-semibold text-white"
+          className="flex-1 rounded-lg border border-[#3f3f3f] bg-transparent px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] disabled:opacity-50"
         >
           Discard
         </button>
         <button
           disabled={isLoading}
-          className="w-full rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white"
+          className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
         >
-          {isLoading ? "Creating..." : "Create bet"}
+          {isLoading ? "Creating..." : "Send Bet"}
         </button>
       </div>
     </form>

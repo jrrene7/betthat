@@ -1,6 +1,9 @@
+import { LazyLoadImage } from "react-lazy-load-image-component";
+
 interface AccountOption {
   id: string;
   name: string | null;
+  image?: string | null;
 }
 
 interface Props {
@@ -37,88 +40,125 @@ export default function SubmitChallenge({
   onToggleParticipant,
 }: Props) {
   return (
-    <form onSubmit={onCreateChallenge} className="mt-6 w-full">
-      <div className="mb-4">
-        <label className="block text-sm font-semibold">Challenge title</label>
+    <form onSubmit={onCreateChallenge} className="flex flex-col gap-5">
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">Title</label>
         <input
           value={challengeTitle}
           onChange={(e) => onChallengeTitleChange(e.target.value)}
           maxLength={150}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
-          placeholder="Example: March Madness Bracket Challenge"
+          placeholder="e.g. March Madness Bracket Challenge"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-semibold">Description (optional)</label>
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Rules <span className="font-normal text-gray-500">(optional)</span>
+        </label>
         <textarea
           value={challengeDescription}
           onChange={(e) => onChallengeDescriptionChange(e.target.value)}
-          rows={4}
+          rows={3}
           maxLength={5000}
-          className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
-          placeholder="Challenge rules..."
+          placeholder="Describe how this challenge works..."
+          className="mt-2 w-full resize-none rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-semibold">Starts at (optional)</label>
+          <label className="block text-sm font-semibold text-gray-300">
+            Starts <span className="font-normal text-gray-500">(optional)</span>
+          </label>
           <input
             type="datetime-local"
             value={challengeStartsAt}
             onChange={(e) => onChallengeStartsAtChange(e.target.value)}
-            className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold">Ends at (optional)</label>
+          <label className="block text-sm font-semibold text-gray-300">
+            Ends <span className="font-normal text-gray-500">(optional)</span>
+          </label>
           <input
             type="datetime-local"
             value={challengeEndsAt}
             onChange={(e) => onChallengeEndsAtChange(e.target.value)}
-            className="mt-2 w-full rounded-[4px] border border-[rgba(255,255,255,0.75)] bg-transparent p-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none"
           />
         </div>
       </div>
 
-      <div className="mb-6">
-        <label className="block text-sm font-semibold">Participants</label>
-        <div className="mt-2 max-h-[180px] overflow-y-auto rounded-[4px] border border-[rgba(255,255,255,0.75)] p-2">
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Invite participants{" "}
+          <span className="font-normal text-gray-500">(optional)</span>
+        </label>
+        {selectedParticipantIds.length > 0 && (
+          <p className="mt-1 text-xs text-gray-500">
+            {selectedParticipantIds.length} selected
+          </p>
+        )}
+        <div className="mt-2 max-h-[220px] overflow-y-auto rounded-lg border border-[#3f3f3f] bg-[#1a1a1a]">
           {accounts.length === 0 && (
-            <p className="text-sm text-[rgba(255,255,255,0.75)]">No users available.</p>
+            <p className="px-4 py-3 text-sm text-gray-500">No users available.</p>
           )}
           {accounts.map((account) => {
             const isSelected = selectedParticipantIds.includes(account.id);
             return (
-              <label key={account.id} className="mb-2 flex cursor-pointer items-center text-sm last:mb-0">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggleParticipant(account.id)}
-                  className="mr-2"
-                />
-                <span>{account.name ?? "Unknown"}</span>
-              </label>
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => onToggleParticipant(account.id)}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-[#2a2a2a] ${
+                  isSelected ? "bg-primary/10 text-white" : "text-gray-300"
+                }`}
+              >
+                <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[#2a2a2a]">
+                  {account.image && (
+                    <LazyLoadImage
+                      src={account.image}
+                      className="h-full w-full object-cover"
+                      effect="opacity"
+                    />
+                  )}
+                </div>
+                <span className="flex-1 font-medium">{account.name ?? "Unknown"}</span>
+                <div
+                  className={`h-5 w-5 flex-shrink-0 rounded border transition-colors ${
+                    isSelected
+                      ? "border-primary bg-primary"
+                      : "border-[#3f3f3f] bg-transparent"
+                  } flex items-center justify-center`}
+                >
+                  {isSelected && (
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="white">
+                      <path d="M20 6L9 17l-5-5 1.41-1.41L9 14.17l9.59-9.59L20 6z" />
+                    </svg>
+                  )}
+                </div>
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex gap-3 pt-2">
         <button
           disabled={isLoading}
           type="button"
           onClick={onDiscardChallenge}
-          className="w-full rounded-sm border border-[rgba(255,255,255,0.75)] bg-transparent px-4 py-2 text-sm font-semibold text-white"
+          className="flex-1 rounded-lg border border-[#3f3f3f] bg-transparent px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] disabled:opacity-50"
         >
           Discard
         </button>
         <button
           disabled={isLoading}
-          className="w-full rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white"
+          className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
         >
-          {isLoading ? "Creating..." : "Create challenge"}
+          {isLoading ? "Creating..." : "Create Challenge"}
         </button>
       </div>
     </form>

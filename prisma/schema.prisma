@@ -43,19 +43,24 @@ model User {
   emailVerified DateTime?
   image         String?
   bio           String?
+  balance       Int       @default(1000)
   accounts      Account[]
   sessions      Session[]
   video         Video[]
-  likes         Likes[]
-  comment       Comment[]
+
   posts         Post[]         @relation("PostAuthor")
   postLikes     PostLike[]
   postComments  PostComment[]
   betsCreated   Bet[]          @relation("BetCreator")
   betsReceived  Bet[]          @relation("BetOpponent")
   betsWon       Bet[]          @relation("BetWinner")
+  betVotes      BetVote[]
   challenges    Challenge[]    @relation("ChallengeCreator")
   challengeParticipations ChallengeParticipant[]
+  submissions     ChallengeSubmission[]
+  betSubmissions  BetSubmission[]
+  submissionVotes SubmissionVote[]
+  transactions    PointTransaction[]
   followers     Follow[]       @relation("followings")
   followings    Follow[]       @relation("followers")
   checked       Boolean        @default(false)
@@ -73,29 +78,21 @@ model VerificationToken {
 }
 
 model Video {
-  id        String    @id @default(cuid()) @map("_id")
+  id        String         @id @default(cuid()) @map("_id")
   title     String
   videoUrl  String
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String?
   width     Int
   height    Int
   thumbnail String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt()
-  likes     Likes[]
-  comment   Comment[]
-  posts     Post[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt()
+  posts               Post[]
+  challengeSubmissions ChallengeSubmission[] @relation("ChallengeSubmissionVideo")
+  betSubmissions       BetSubmission[]       @relation("BetSubmissionVideo")
 
   @@fulltext([title])
-}
-
-model Likes {
-  id      String  @id @default(cuid()) @map("_id")
-  video   Video?  @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  videoId String?
-  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String?
 }
 
 model Follow {
@@ -104,17 +101,6 @@ model Follow {
   followingId String
   follower    User   @relation("followers", fields: [followerId], references: [id])
   following   User   @relation("followings", fields: [followingId], references: [id])
-}
-
-model Comment {
-  id        String   @id @default(cuid()) @map("_id")
-  comment   String
-  video     Video    @relation(fields: [videoId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt()
-  videoId   String
-  userId    String
 }
 
 model Post {
@@ -126,6 +112,7 @@ model Post {
   author      User          @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   videoId     String?
   video       Video?        @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  imageUrl    String?
   likes       PostLike[]
   comments    PostComment[]
   createdAt   DateTime      @default(now())
@@ -162,22 +149,27 @@ model PostComment {
 }
 
 model Bet {
-  id          String     @id @default(cuid()) @map("_id")
-  title       String
-  description String?
-  status      BetStatus  @default(PENDING)
-  creatorId   String
-  creator     User       @relation("BetCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  opponentId  String
-  opponent    User       @relation("BetOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
-  winnerId    String?
-  winner      User?      @relation("BetWinner", fields: [winnerId], references: [id], onDelete: SetNull)
-  challengeId String?
-  challenge   Challenge? @relation(fields: [challengeId], references: [id], onDelete: SetNull)
-  dueAt       DateTime?
-  resolvedAt  DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt()
+  id           String             @id @default(cuid()) @map("_id")
+  title        String
+  description  String?
+  status       BetStatus          @default(PENDING)
+  wagerAmount  Int                @default(0)
+  visibility   Visibility         @default(PUBLIC)
+  creatorId    String
+  creator      User               @relation("BetCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  opponentId   String
+  opponent     User               @relation("BetOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+  winnerId     String?
+  winner       User?              @relation("BetWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  challengeId  String?
+  challenge    Challenge?         @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  votes           BetVote[]
+  betSubmissions  BetSubmission[]
+  transactions    PointTransaction[]
+  dueAt        DateTime?
+  resolvedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt()
 
   @@index([creatorId])
   @@index([opponentId])
@@ -186,15 +178,32 @@ model Bet {
   @@index([status])
 }
 
+model BetVote {
+  id         String   @id @default(cuid()) @map("_id")
+  betId      String
+  bet        Bet      @relation(fields: [betId], references: [id], onDelete: Cascade)
+  voterId    String
+  voter      User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  votedForId String
+  createdAt  DateTime @default(now())
+
+  @@unique([betId, voterId])
+  @@index([betId])
+  @@index([voterId])
+}
+
 model Challenge {
   id           String                 @id @default(cuid()) @map("_id")
   title        String
   description  String?
   status       ChallengeStatus        @default(OPEN)
+  visibility   Visibility             @default(PUBLIC)
+  wagerAmount  Int                    @default(0)
   creatorId    String
   creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   participants ChallengeParticipant[]
   bets         Bet[]
+  submissions  ChallengeSubmission[]
   startsAt     DateTime?
   endsAt       DateTime?
   createdAt    DateTime               @default(now())
@@ -205,16 +214,80 @@ model Challenge {
 }
 
 model ChallengeParticipant {
-  id          String                   @id @default(cuid()) @map("_id")
+  id          String    @id @default(cuid()) @map("_id")
   challengeId String
-  challenge   Challenge                @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   userId      String
-  user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role        ChallengeParticipantRole @default(PARTICIPANT)
-  joinedAt    DateTime                 @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime  @default(now())
 
   @@unique([challengeId, userId])
   @@index([userId])
+}
+
+model ChallengeSubmission {
+  id          String           @id @default(cuid()) @map("_id")
+  challengeId String
+  challenge   Challenge        @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String?
+  imageUrl    String?
+  videoId     String?
+  video       Video?           @relation("ChallengeSubmissionVideo", fields: [videoId], references: [id], onDelete: SetNull)
+  votes       SubmissionVote[]
+  status      SubmissionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt()
+
+  @@index([challengeId])
+  @@index([userId])
+}
+
+model BetSubmission {
+  id        String   @id @default(cuid()) @map("_id")
+  betId     String
+  bet       Bet      @relation(fields: [betId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String?
+  imageUrl  String?
+  videoId   String?
+  video     Video?   @relation("BetSubmissionVideo", fields: [videoId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+
+  @@index([betId])
+  @@index([userId])
+}
+
+model SubmissionVote {
+  id           String              @id @default(cuid()) @map("_id")
+  submissionId String
+  submission   ChallengeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  voterId      String
+  voter        User                @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  approved     Boolean
+  createdAt    DateTime            @default(now())
+
+  @@unique([submissionId, voterId])
+  @@index([submissionId])
+  @@index([voterId])
+}
+
+model PointTransaction {
+  id          String          @id @default(cuid()) @map("_id")
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int
+  type        TransactionType
+  betId       String?
+  bet         Bet?            @relation(fields: [betId], references: [id], onDelete: SetNull)
+  description String?
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+  @@index([betId])
 }
 
 enum BetStatus {
@@ -222,6 +295,7 @@ enum BetStatus {
   ACCEPTED
   DECLINED
   ACTIVE
+  DISPUTED
   SETTLED
   CANCELLED
 }
@@ -233,7 +307,21 @@ enum ChallengeStatus {
   CANCELLED
 }
 
-enum ChallengeParticipantRole {
-  CREATOR
-  PARTICIPANT
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum TransactionType {
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  BET_REFUNDED
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

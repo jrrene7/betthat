@@ -110,6 +110,18 @@ export default function PostCard({ post }: Props) {
             </p>
           )}
 
+          {/* Attached image */}
+          {post.imageUrl && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#2f2f2f]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.imageUrl}
+                alt=""
+                className="max-h-[500px] w-full object-contain bg-black"
+              />
+            </div>
+          )}
+
           {/* Attached video */}
           {post.video && (
             <div className="mt-3 overflow-hidden rounded-xl border border-[#2f2f2f]">

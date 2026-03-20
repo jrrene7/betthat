@@ -1,66 +1,76 @@
 import { publicProcedure, protectedProcedure, router } from "src/server/trpc/trpc";
+import { Visibility } from "@prisma/client";
 import { z } from "zod";
+
+const postInclude = {
+  author: true,
+  video: true,
+  _count: { select: { likes: true, comments: true } },
+} as const;
+
+const betInclude = {
+  creator: true,
+  opponent: true,
+  winner: true,
+} as const;
+
+const challengeInclude = {
+  creator: true,
+  _count: { select: { participants: true, submissions: true } },
+} as const;
 
 async function buildFeedItems(
   ctx: any,
   input: { skip: number; limit: number },
-  userIdFilter?: string[]
+  authorIdFilter?: string[]
 ) {
   const { skip, limit } = input;
   const fetchCount = skip + limit;
 
-  const videoWhere = userIdFilter ? { userId: { in: userIdFilter } } : {};
-  const postWhere = userIdFilter
-    ? { isPublished: true, authorId: { in: userIdFilter } }
-    : { isPublished: true };
+  const postWhere = {
+    isPublished: true,
+    ...(authorIdFilter ? { authorId: { in: authorIdFilter } } : {}),
+  };
+  const betWhere = {
+    NOT: { visibility: { in: [Visibility.UNLISTED, Visibility.PRIVATE] } },
+    ...(authorIdFilter
+      ? { OR: [{ creatorId: { in: authorIdFilter } }, { opponentId: { in: authorIdFilter } }] }
+      : {}),
+  };
+  const challengeWhere = {
+    NOT: { visibility: { in: [Visibility.UNLISTED, Visibility.PRIVATE] } },
+    ...(authorIdFilter ? { creatorId: { in: authorIdFilter } } : {}),
+  };
 
-  const [videos, posts] = await Promise.all([
-    ctx.prisma.video.findMany({
-      where: videoWhere,
-      include: { user: true, _count: { select: { likes: true, comment: true } } },
+  const [posts, bets, challenges] = await Promise.all([
+    ctx.prisma.post.findMany({
+      where: postWhere,
+      include: postInclude,
       orderBy: { createdAt: "desc" },
       take: fetchCount,
     }),
-    ctx.prisma.post.findMany({
-      where: postWhere,
-      include: {
-        author: true,
-        video: true,
-        _count: { select: { likes: true, comments: true } },
-      },
+    ctx.prisma.bet.findMany({
+      where: betWhere,
+      include: betInclude,
+      orderBy: { createdAt: "desc" },
+      take: fetchCount,
+    }),
+    ctx.prisma.challenge.findMany({
+      where: challengeWhere,
+      include: challengeInclude,
       orderBy: { createdAt: "desc" },
       take: fetchCount,
     }),
   ]);
 
-  // Fetch like state for both videos and posts when user is logged in
-  let likedVideoIds = new Set<string>();
   let likedPostIds = new Set<string>();
-  if (ctx.session?.user) {
-    const [videoLikes, postLikes] = await Promise.all([
-      videos.length > 0
-        ? ctx.prisma.likes.findMany({
-            where: { userId: ctx.session.user.id, videoId: { in: videos.map((v: any) => v.id) } },
-            select: { videoId: true },
-          })
-        : [],
-      posts.length > 0
-        ? ctx.prisma.postLike.findMany({
-            where: { userId: ctx.session.user.id, postId: { in: posts.map((p: any) => p.id) } },
-            select: { postId: true },
-          })
-        : [],
-    ]);
-    likedVideoIds = new Set((videoLikes as any[]).map((l) => l.videoId));
-    likedPostIds = new Set((postLikes as any[]).map((l) => l.postId));
+  if (ctx.session?.user && posts.length > 0) {
+    const postLikes = await ctx.prisma.postLike.findMany({
+      where: { userId: ctx.session.user.id, postId: { in: posts.map((p: any) => p.id) } },
+      select: { postId: true },
+    });
+    likedPostIds = new Set(postLikes.map((l: any) => l.postId));
   }
-
-  const videoItems = videos.map((v: any) => ({
-    type: "video" as const,
-    id: v.id,
-    createdAt: v.createdAt,
-    data: { ...v, isLike: likedVideoIds.has(v.id) },
-  }));
 
   const postItems = posts.map((p: any) => ({
     type: "post" as const,
@@ -68,9 +78,21 @@ async function buildFeedItems(
     createdAt: p.createdAt,
     data: { ...p, isLike: likedPostIds.has(p.id) },
   }));
+  const betItems = bets.map((b: any) => ({
+    type: "bet" as const,
+    id: b.id,
+    createdAt: b.createdAt,
+    data: b,
+  }));
+  const challengeItems = challenges.map((c: any) => ({
+    type: "challenge" as const,
+    id: c.id,
+    createdAt: c.createdAt,
+    data: c,
+  }));
 
-  const merged = [...videoItems, ...postItems].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  const merged = [...postItems, ...betItems, ...challengeItems].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const page = merged.slice(skip, skip + limit);

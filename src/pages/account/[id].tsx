@@ -43,11 +43,6 @@ export const getServerSideProps: GetServerSideProps = async (
           followings: true,
         },
       },
-      likes: {
-        include: {
-          video: true,
-        },
-      },
     },
   });
   if (session?.user) {

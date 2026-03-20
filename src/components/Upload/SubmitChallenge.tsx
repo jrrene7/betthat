@@ -13,6 +13,7 @@ interface Props {
   challengeDescription: string;
   challengeStartsAt: string;
   challengeEndsAt: string;
+  challengeWagerAmount: number;
   selectedParticipantIds: string[];
   onCreateChallenge: (e: React.SyntheticEvent<HTMLFormElement>) => void;
   onDiscardChallenge: () => void;
@@ -20,6 +21,7 @@ interface Props {
   onChallengeDescriptionChange: (value: string) => void;
   onChallengeStartsAtChange: (value: string) => void;
   onChallengeEndsAtChange: (value: string) => void;
+  onChallengeWagerAmountChange: (value: number) => void;
   onToggleParticipant: (userId: string) => void;
 }
 
@@ -30,6 +32,7 @@ export default function SubmitChallenge({
   challengeDescription,
   challengeStartsAt,
   challengeEndsAt,
+  challengeWagerAmount,
   selectedParticipantIds,
   onCreateChallenge,
   onDiscardChallenge,
@@ -37,6 +40,7 @@ export default function SubmitChallenge({
   onChallengeDescriptionChange,
   onChallengeStartsAtChange,
   onChallengeEndsAtChange,
+  onChallengeWagerAmountChange,
   onToggleParticipant,
 }: Props) {
   return (
@@ -89,6 +93,23 @@ export default function SubmitChallenge({
             className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Buy-in <span className="font-normal text-gray-500">(pts per participant, optional)</span>
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={100000}
+          step={10}
+          value={challengeWagerAmount}
+          onChange={(e) => onChallengeWagerAmountChange(Math.max(0, parseInt(e.target.value) || 0))}
+          placeholder="0"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+        />
+        <p className="mt-1 text-xs text-gray-500">Each participant puts up this many points. Winner takes the pot.</p>
       </div>
 
       <div>

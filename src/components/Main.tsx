@@ -1,5 +1,6 @@
 import PostCard from "src/components/Feed/PostCard";
-import VideoCard from "src/components/Feed/VideoCard";
+import BetCard from "src/components/Feed/BetCard";
+import ChallengeCard from "src/components/Feed/ChallengeCard";
 import { trpc } from "src/utils/trpc";
 import { RouterOutputs } from "src/utils/trpc";
 
@@ -26,12 +27,9 @@ export default function Main() {
           </p>
         )}
         {data?.items.map((item: FeedItem) => {
-          if (item.type === "video") {
-            return <VideoCard key={`video-${item.id}`} video={item.data} />;
-          }
-          if (item.type === "post") {
-            return <PostCard key={`post-${item.id}`} post={item.data} />;
-          }
+          if (item.type === "post") return <PostCard key={item.id} post={item.data} />;
+          if (item.type === "bet") return <BetCard key={item.id} bet={item.data} />;
+          if (item.type === "challenge") return <ChallengeCard key={item.id} challenge={item.data} />;
           return null;
         })}
       </div>

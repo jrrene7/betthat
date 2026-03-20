@@ -30,13 +30,8 @@ export interface Video<T> {
   createdAt: Date;
   updatedAt: Date;
   user: T;
-  _count: {
-    likes: number;
-    comment: number;
-  };
   isLike: boolean;
   isFollow: boolean;
-  comment?: Comment[];
 }
 
 export interface Account extends User {
@@ -75,7 +70,6 @@ export interface Profile {
   image: string;
   bio?: any;
   video: VideoDefault[];
-  likes: Like[];
   _count: Count;
 }
 

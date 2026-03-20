@@ -30,15 +30,10 @@ export const getServerSideProps: GetServerSideProps = async (
   context: GetServerSidePropsContext
 ) => {
   const id = context.params?.id as string;
-  const session = await getServerSession(context.req, context.res, authOptions);
-  let isFollow = false;
-  let isLike = false;
 
   try {
     const video = await prisma.video.findFirst({
-      where: {
-        id,
-      },
+      where: { id },
       include: {
         user: {
           include: {
@@ -50,53 +45,22 @@ export const getServerSideProps: GetServerSideProps = async (
             },
           },
         },
-        _count: {
-          select: {
-            likes: true,
-            comment: true,
-          },
-        },
-        comment: {
-          include: {
-            user: true,
-          },
-        },
       },
     });
 
-    if (session?.user) {
-      const [likedByMe, followedByMe] = await Promise.all([
-        prisma.likes.findFirst({
-          where: {
-            userId: session?.user?.id,
-            videoId: video?.id,
-          },
-        }),
-        prisma.follow.findFirst({
-          where: {
-            followerId: session?.user?.id,
-            followingId: video?.user?.id,
-          },
-        }),
-      ]);
-      isLike = Boolean(likedByMe);
-      isFollow = Boolean(followedByMe);
-    }
+    if (!video) return { notFound: true };
 
     return {
       props: {
         video: {
           ...JSON.parse(JSON.stringify(video)),
-          isFollow,
-          isLike,
+          isLike: false,
+          isFollow: false,
         },
       },
     };
   } catch (error) {
-    console.log(error);
-    return {
-      props: {},
-      notFound: true,
-    };
+    console.error(error);
+    return { props: {}, notFound: true };
   }
 };

@@ -13,12 +13,14 @@ interface Props {
   betDescription: string;
   betOpponentId: string;
   betDueAt: string;
+  betWagerAmount: number;
   onCreateBet: (e: React.SyntheticEvent<HTMLFormElement>) => void;
   onDiscardBet: () => void;
   onBetTitleChange: (value: string) => void;
   onBetDescriptionChange: (value: string) => void;
   onBetOpponentChange: (value: string) => void;
   onBetDueAtChange: (value: string) => void;
+  onBetWagerAmountChange: (value: number) => void;
 }
 
 export default function SubmitBet({
@@ -28,12 +30,14 @@ export default function SubmitBet({
   betDescription,
   betOpponentId,
   betDueAt,
+  betWagerAmount,
   onCreateBet,
   onDiscardBet,
   onBetTitleChange,
   onBetDescriptionChange,
   onBetOpponentChange,
   onBetDueAtChange,
+  onBetWagerAmountChange,
 }: Props) {
   return (
     <form onSubmit={onCreateBet} className="flex flex-col gap-5">
@@ -98,6 +102,23 @@ export default function SubmitBet({
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-300">
+          Wager <span className="font-normal text-gray-500">(pts, optional)</span>
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={100000}
+          step={10}
+          value={betWagerAmount}
+          onChange={(e) => onBetWagerAmountChange(Math.max(0, parseInt(e.target.value) || 0))}
+          placeholder="0"
+          className="mt-2 w-full rounded-lg border border-[#3f3f3f] bg-[#1a1a1a] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+        />
+        <p className="mt-1 text-xs text-gray-500">Each side puts up this many points. Winner takes all.</p>
       </div>
 
       <div>

@@ -7,6 +7,7 @@ import { postRouter } from "./post";
 import { betRouter } from "./bet";
 import { challengeRouter } from "./challenge";
 import { feedRouter } from "./feed";
+import { userRouter } from "./user";
 
 export const appRouter = router({
     like: likeRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
     bet: betRouter,
     challenge: challengeRouter,
     feed: feedRouter,
+    user: userRouter,
 });
 
 // export type definition of API

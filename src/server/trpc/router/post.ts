@@ -15,6 +15,7 @@ export const postRouter = router({
         title: z.string().trim().max(150).optional().nullable(),
         content: z.string().trim().max(5000).optional().nullable(),
         videoId: z.string().optional().nullable(),
+        imageUrl: z.string().url().optional().nullable(),
         isPublished: z.boolean().optional(),
       })
     )
@@ -23,10 +24,12 @@ export const postRouter = router({
       const videoId = input.videoId ?? undefined;
       const content = input.content?.trim() ?? "";
 
-      if (!content && !videoId) {
+      const imageUrl = input.imageUrl ?? undefined;
+
+      if (!content && !videoId && !imageUrl) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Post must include text or a video.",
+          message: "Post must include text, an image, or a video.",
         });
       }
 
@@ -50,6 +53,7 @@ export const postRouter = router({
           isPublished: input.isPublished ?? true,
           authorId: ctx.session.user.id,
           videoId,
+          imageUrl,
         },
         include: postInclude,
       });
@@ -131,6 +135,19 @@ export const postRouter = router({
         include: { user: true },
       });
       return { comment };
+    }),
+
+  getLikedPosts: publicProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const likes = await ctx.prisma.postLike.findMany({
+        where: { userId: input.userId },
+        include: {
+          post: { include: postInclude },
+        },
+        orderBy: { post: { createdAt: "desc" } },
+      });
+      return { posts: likes.map((l) => l.post) };
     }),
 
   getPostComments: publicProcedure

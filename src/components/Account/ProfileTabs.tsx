@@ -2,11 +2,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import VideoSmall from "src/components/Video/VideoSmall";
+import PostCard from "src/components/Feed/PostCard";
 import { Profile } from "src/types";
 import { trpc } from "src/utils/trpc";
 import { calculateCreatedTime } from "src/utils";
 
-type Tab = "videos" | "posts" | "bets" | "likes";
+type Tab = "videos" | "posts" | "bets" | "challenges" | "likes";
 
 interface Props {
   profile: Profile;
@@ -30,16 +31,27 @@ export default function ProfileTabs({ profile }: Props) {
     { enabled: tab === "posts" }
   );
 
+  const { data: likedPostsData, isLoading: likedPostsLoading } = trpc.post.getLikedPosts.useQuery(
+    { userId: profile.id },
+    { enabled: tab === "likes" }
+  );
+
   const { data: betsData, isLoading: betsLoading } = trpc.bet.getUserBets.useQuery(
     { userId: profile.id },
     { enabled: tab === "bets" }
   );
 
+  const { data: challengesData, isLoading: challengesLoading } = trpc.challenge.getUserChallenges.useQuery(
+    { userId: profile.id },
+    { enabled: tab === "challenges" }
+  );
+
   const TABS: { key: Tab; label: string }[] = [
-    { key: "videos", label: "Videos" },
-    { key: "posts",  label: "Posts" },
-    { key: "bets",   label: "Bets" },
-    { key: "likes",  label: "Likes" },
+    { key: "videos",     label: "Videos" },
+    { key: "posts",      label: "Posts" },
+    { key: "bets",       label: "Bets" },
+    { key: "challenges", label: "Challenges" },
+    { key: "likes",      label: "Likes" },
   ];
 
   return (
@@ -160,21 +172,68 @@ export default function ProfileTabs({ profile }: Props) {
           </div>
         )}
 
-        {/* Likes */}
-        {tab === "likes" && (
-          <>
-            {profile.likes.length === 0 && (
-              <p className="mt-8 text-center text-sm text-gray-500">No liked videos yet.</p>
+        {/* Challenges */}
+        {tab === "challenges" && (
+          <div className="mx-auto mt-4 max-w-xl">
+            {challengesLoading && <p className="py-8 text-center text-sm text-gray-500">Loading...</p>}
+            {!challengesLoading && challengesData?.challenges.length === 0 && (
+              <p className="py-8 text-center text-sm text-gray-500">No challenges yet.</p>
             )}
-            <div className="grid grid-cols-3 gap-1 pt-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {profile.likes.map((like) => (
-                <VideoSmall
-                  key={like.id}
-                  video={{ id: like.video.id, title: like.video.title, videoUrl: like.video.videoUrl }}
-                />
+            <div className="flex flex-col gap-3">
+              {challengesData?.challenges.map((challenge) => (
+                <Link
+                  key={challenge.id}
+                  href={`/challenge/${challenge.id}`}
+                  className="flex flex-col gap-2 rounded-xl border border-[#2f2f2f] bg-[#1a1a1a] p-4 transition-colors hover:border-[#3f3f3f]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold leading-snug">{challenge.title}</p>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        challenge.visibility === "PRIVATE"
+                          ? "bg-orange-500/20 text-orange-400"
+                          : challenge.visibility === "UNLISTED"
+                          ? "bg-gray-500/20 text-gray-400"
+                          : "bg-green-500/20 text-green-400"
+                      }`}>
+                        {challenge.visibility === "PUBLIC" ? "Public" : challenge.visibility === "UNLISTED" ? "Unlisted" : "Private"}
+                      </span>
+                      <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        challenge.status === "ACTIVE" ? "bg-blue-500/20 text-blue-400" :
+                        challenge.status === "COMPLETED" ? "bg-purple-500/20 text-purple-400" :
+                        "bg-green-500/20 text-green-400"
+                      }`}>
+                        {challenge.status}
+                      </span>
+                    </div>
+                  </div>
+                  {challenge.description && (
+                    <p className="line-clamp-2 text-sm text-gray-400">{challenge.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span>{challenge._count.participants} participants</span>
+                    {challenge._count.submissions > 0 && (
+                      <span>{challenge._count.submissions} submissions</span>
+                    )}
+                    <span className="ml-auto">{calculateCreatedTime(challenge.createdAt)}</span>
+                  </div>
+                </Link>
               ))}
             </div>
-          </>
+          </div>
+        )}
+
+        {/* Likes */}
+        {tab === "likes" && (
+          <div className="mx-auto mt-4 max-w-xl">
+            {likedPostsLoading && <p className="py-8 text-center text-sm text-gray-500">Loading...</p>}
+            {!likedPostsLoading && likedPostsData?.posts.length === 0 && (
+              <p className="py-8 text-center text-sm text-gray-500">No liked posts yet.</p>
+            )}
+            {likedPostsData?.posts.map((post) => (
+              <PostCard key={post.id} post={{ ...post, isLike: true }} />
+            ))}
+          </div>
         )}
       </div>
     </>

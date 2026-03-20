@@ -72,16 +72,21 @@ export default function UploadModal() {
   const [postVideoWidth, setPostVideoWidth] = useState(0);
   const [postVideoHeight, setPostVideoHeight] = useState(0);
   const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 
   const [betTitle, setBetTitle] = useState("");
   const [betDescription, setBetDescription] = useState("");
   const [betOpponentId, setBetOpponentId] = useState("");
   const [betDueAt, setBetDueAt] = useState("");
+  const [betWagerAmount, setBetWagerAmount] = useState(0);
 
   const [challengeTitle, setChallengeTitle] = useState("");
   const [challengeDescription, setChallengeDescription] = useState("");
   const [challengeStartsAt, setChallengeStartsAt] = useState("");
   const [challengeEndsAt, setChallengeEndsAt] = useState("");
+  const [challengeWagerAmount, setChallengeWagerAmount] = useState(0);
   const [challengeParticipantIds, setChallengeParticipantIds] = useState<string[]>([]);
 
   const { data: accountData } = trpc.follow.getAccountSuggestion.useQuery(undefined, {
@@ -141,6 +146,15 @@ export default function UploadModal() {
     return getCloudinaryPlaybackUrl(uploadedUrl);
   }
 
+  async function onPostImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image")) { toast.error("Please select an image file"); return; }
+    if (file.size / 1_000_000 > 10) { toast.error("Image too large, max 10MB"); return; }
+    setPostImageFile(file);
+    setPostImagePreview(URL.createObjectURL(file));
+  }
+
   async function onPostVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -161,19 +175,25 @@ export default function UploadModal() {
     setPostTitle(""); setPostContent("");
     setPostVideoFile(null); setPostVideoPreview(null);
     setPostVideoWidth(0); setPostVideoHeight(0);
+    setPostImageFile(null); setPostImagePreview(null);
   }
-  function resetBet() { setBetTitle(""); setBetDescription(""); setBetOpponentId(""); setBetDueAt(""); }
+  function resetBet() { setBetTitle(""); setBetDescription(""); setBetOpponentId(""); setBetDueAt(""); setBetWagerAmount(0); }
   function resetChallenge() {
     setChallengeTitle(""); setChallengeDescription("");
-    setChallengeStartsAt(""); setChallengeEndsAt(""); setChallengeParticipantIds([]);
+    setChallengeStartsAt(""); setChallengeEndsAt(""); setChallengeWagerAmount(0); setChallengeParticipantIds([]);
   }
 
   async function onCreatePost(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!postContent.trim() && !postVideoFile) { toast.error("Add some text or attach a video"); return; }
+    if (!postContent.trim() && !postVideoFile && !postImageFile) {
+      toast.error("Add some text, an image, or a video");
+      return;
+    }
     const toastId = toast.loading("Creating post...", { position: "top-center" });
     try {
       let linkedVideoId: string | null = null;
+      let linkedImageUrl: string | null = null;
+
       if (postVideoFile) {
         setIsUploadingPostVideo(true);
         const videoUrl = await uploadVideoToCloudinary(postVideoFile, toastId);
@@ -181,8 +201,33 @@ export default function UploadModal() {
         if (!w || !h) { const dims = await readVideoDimensions(postVideoFile); w = dims.width; h = dims.height; }
         const created = await createVideoMutation.mutateAsync({ title: postTitle.trim() || "Post video", videoWidth: w, videoHeight: h, videoUrl });
         linkedVideoId = created.video.id;
+      } else if (postImageFile) {
+        setIsUploadingPostImage(true);
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || process.env.NEXT_PUBLIC_UPLOAD_PRESET;
+        if (!cloudName || !uploadPreset) throw new Error("Cloudinary is not configured");
+        const formData = new FormData();
+        formData.append("file", postImageFile);
+        formData.append("upload_preset", uploadPreset);
+        toast.loading("Uploading image...", { id: toastId });
+        const response = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          formData,
+          { onUploadProgress: ({ loaded, total }) => {
+            const pct = Math.round((loaded * 100) / (total || 1));
+            toast.loading(`${pct}% uploaded...`, { id: toastId });
+          }}
+        );
+        linkedImageUrl = response.data?.secure_url ?? response.data?.url ?? null;
+        if (!linkedImageUrl) throw new Error("No image URL returned");
       }
-      await createPostMutation.mutateAsync({ title: postTitle.trim() || null, content: postContent.trim(), videoId: linkedVideoId });
+
+      await createPostMutation.mutateAsync({
+        title: postTitle.trim() || null,
+        content: postContent.trim(),
+        videoId: linkedVideoId,
+        imageUrl: linkedImageUrl,
+      });
       toast.dismiss(toastId);
       toast.success("Post created!");
       resetPost();
@@ -192,6 +237,7 @@ export default function UploadModal() {
       toast.error("Could not create post");
     } finally {
       setIsUploadingPostVideo(false);
+      setIsUploadingPostImage(false);
     }
   }
 
@@ -202,7 +248,7 @@ export default function UploadModal() {
     try {
       const dueDate = betDueAt ? new Date(betDueAt) : null;
       if (dueDate && Number.isNaN(dueDate.getTime())) { toast.error("Invalid due date"); return; }
-      const { bet } = await createBetMutation.mutateAsync({ title: betTitle.trim(), description: betDescription.trim() || null, opponentId: betOpponentId, dueAt: dueDate ? dueDate.toISOString() : null });
+      const { bet } = await createBetMutation.mutateAsync({ title: betTitle.trim(), description: betDescription.trim() || null, opponentId: betOpponentId, dueAt: dueDate ? dueDate.toISOString() : null, wagerAmount: betWagerAmount });
       toast.success("Bet sent!");
       resetBet();
       close();
@@ -220,10 +266,11 @@ export default function UploadModal() {
       const endsAt = challengeEndsAt ? new Date(challengeEndsAt) : null;
       if (startsAt && Number.isNaN(startsAt.getTime())) { toast.error("Invalid start date"); return; }
       if (endsAt && Number.isNaN(endsAt.getTime())) { toast.error("Invalid end date"); return; }
-      await createChallengeMutation.mutateAsync({ title: challengeTitle.trim(), description: challengeDescription.trim() || null, participantIds: challengeParticipantIds, startsAt: startsAt ? startsAt.toISOString() : null, endsAt: endsAt ? endsAt.toISOString() : null });
+      const { challenge } = await createChallengeMutation.mutateAsync({ title: challengeTitle.trim(), description: challengeDescription.trim() || null, participantIds: challengeParticipantIds, startsAt: startsAt ? startsAt.toISOString() : null, endsAt: endsAt ? endsAt.toISOString() : null, wagerAmount: challengeWagerAmount });
       toast.success("Challenge created!");
       resetChallenge();
       close();
+      router.push(`/challenge/${challenge.id}`);
     } catch {
       toast.error("Could not create challenge");
     }
@@ -277,16 +324,19 @@ export default function UploadModal() {
         <div className="overflow-y-auto px-5 py-5">
           {mode === "post" && (
             <SubmitPost
-              isLoading={isUploadingPostVideo || createVideoMutation.isLoading || createPostMutation.isLoading}
+              isLoading={isUploadingPostVideo || isUploadingPostImage || createVideoMutation.isLoading || createPostMutation.isLoading}
               postTitle={postTitle}
               postContent={postContent}
               postVideoPreview={postVideoPreview}
+              postImagePreview={postImagePreview}
               onCreatePost={onCreatePost}
               onDiscardPost={() => { resetPost(); close(); }}
               onPostTitleChange={setPostTitle}
               onPostContentChange={setPostContent}
               onPostVideoChange={onPostVideoChange}
               onClearPostVideo={() => { setPostVideoFile(null); setPostVideoPreview(null); setPostVideoWidth(0); setPostVideoHeight(0); }}
+              onPostImageChange={onPostImageChange}
+              onClearPostImage={() => { setPostImageFile(null); setPostImagePreview(null); }}
             />
           )}
           {mode === "bet" && (
@@ -297,12 +347,14 @@ export default function UploadModal() {
               betDescription={betDescription}
               betOpponentId={betOpponentId}
               betDueAt={betDueAt}
+              betWagerAmount={betWagerAmount}
               onCreateBet={onCreateBet}
               onDiscardBet={() => { resetBet(); close(); }}
               onBetTitleChange={setBetTitle}
               onBetDescriptionChange={setBetDescription}
               onBetOpponentChange={setBetOpponentId}
               onBetDueAtChange={setBetDueAt}
+              onBetWagerAmountChange={setBetWagerAmount}
             />
           )}
           {mode === "challenge" && (
@@ -313,6 +365,7 @@ export default function UploadModal() {
               challengeDescription={challengeDescription}
               challengeStartsAt={challengeStartsAt}
               challengeEndsAt={challengeEndsAt}
+              challengeWagerAmount={challengeWagerAmount}
               selectedParticipantIds={challengeParticipantIds}
               onCreateChallenge={onCreateChallenge}
               onDiscardChallenge={() => { resetChallenge(); close(); }}
@@ -320,6 +373,7 @@ export default function UploadModal() {
               onChallengeDescriptionChange={setChallengeDescription}
               onChallengeStartsAtChange={setChallengeStartsAt}
               onChallengeEndsAtChange={setChallengeEndsAt}
+              onChallengeWagerAmountChange={setChallengeWagerAmount}
               onToggleParticipant={(id) =>
                 setChallengeParticipantIds((prev) =>
                   prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]

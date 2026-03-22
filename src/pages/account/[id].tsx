@@ -41,6 +41,11 @@ export const getServerSideProps: GetServerSideProps = async (
         select: {
           followers: true,
           followings: true,
+          betsCreated: true,
+          betsReceived: true,
+          betsWon: true,
+          challengeParticipations: true,
+          challengesWon: true,
         },
       },
     },

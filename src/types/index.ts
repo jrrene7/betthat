@@ -60,6 +60,11 @@ export interface Like {
 export interface Count {
   followers: number;
   followings: number;
+  betsCreated?: number;
+  betsReceived?: number;
+  betsWon?: number;
+  challengeParticipations?: number;
+  challengesWon?: number;
 }
 
 export interface Profile {
@@ -69,6 +74,7 @@ export interface Profile {
   emailVerified?: any;
   image: string;
   bio?: any;
+  balance?: number;
   video: VideoDefault[];
   _count: Count;
 }

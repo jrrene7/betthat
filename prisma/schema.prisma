@@ -56,11 +56,14 @@ model User {
   betsWon       Bet[]          @relation("BetWinner")
   betVotes      BetVote[]
   challenges    Challenge[]    @relation("ChallengeCreator")
+  challengesWon Challenge[]    @relation("ChallengeWinner")
   challengeParticipations ChallengeParticipant[]
   submissions     ChallengeSubmission[]
   betSubmissions  BetSubmission[]
   submissionVotes SubmissionVote[]
   transactions    PointTransaction[]
+  notifications          Notification[] @relation("NotificationRecipient")
+  notificationsTriggered Notification[] @relation("NotificationActor")
   followers     Follow[]       @relation("followings")
   followings    Follow[]       @relation("followers")
   checked       Boolean        @default(false)
@@ -201,16 +204,20 @@ model Challenge {
   wagerAmount  Int                    @default(0)
   creatorId    String
   creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  winnerId     String?
+  winner       User?                  @relation("ChallengeWinner", fields: [winnerId], references: [id], onDelete: SetNull)
   participants ChallengeParticipant[]
   bets         Bet[]
   submissions  ChallengeSubmission[]
   startsAt     DateTime?
   endsAt       DateTime?
+  completedAt  DateTime?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt()
 
   @@index([creatorId])
   @@index([status])
+  @@index([winnerId])
 }
 
 model ChallengeParticipant {
@@ -313,11 +320,40 @@ enum Visibility {
   PRIVATE
 }
 
+model Notification {
+  id         String           @id @default(cuid()) @map("_id")
+  userId     String
+  user       User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type       NotificationType
+  entityId   String?
+  entityType String?
+  message    String?
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@index([userId])
+  @@index([actorId])
+}
+
+enum NotificationType {
+  BET_RECEIVED
+  CHALLENGE_INVITED
+  CHALLENGE_JOINED
+  BET_ACCEPTED
+  BET_DECLINED
+  CHALLENGE_COMPLETED
+}
+
 enum TransactionType {
   BET_PLACED
   BET_WON
   BET_LOST
   BET_REFUNDED
+  CHALLENGE_ENTRY
+  CHALLENGE_WON
+  CHALLENGE_REFUNDED
 }
 
 enum SubmissionStatus {

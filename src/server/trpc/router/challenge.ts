@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { TransactionType, Visibility } from "@prisma/client";
+import { NotificationType, TransactionType, Visibility } from "@prisma/client";
 import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ function parseOptionalDate(value: string | null | undefined) {
 
 const challengeInclude = {
   creator: true,
+  winner: { select: { id: true, name: true, image: true } },
   participants: { include: { user: true } },
   _count: { select: { participants: true, submissions: true, bets: true } },
 } as const;
@@ -90,11 +91,24 @@ export const challengeRouter = router({
             data: {
               userId: ctx.session.user.id,
               amount: -input.wagerAmount,
-              type: TransactionType.BET_PLACED,
-              description: `Challenge wager: ${challenge.title}`,
+              type: TransactionType.CHALLENGE_ENTRY,
+              description: `Challenge entry: ${challenge.title}`,
             },
           }),
         ]);
+      }
+      // Notify invited participants
+      if (participantIds.length > 0) {
+        await ctx.prisma.notification.createMany({
+          data: participantIds.map((userId) => ({
+            userId,
+            actorId: ctx.session.user.id,
+            type: NotificationType.CHALLENGE_INVITED,
+            entityId: challenge.id,
+            entityType: "challenge",
+            message: `invited you to join "${challenge.title}"`,
+          })),
+        });
       }
       return { challenge };
     }),
@@ -147,6 +161,233 @@ export const challengeRouter = router({
       return { challenges };
     }),
 
+  updateChallenge: protectedProcedure
+    .input(z.object({
+      challengeId: z.string(),
+      title: z.string().trim().min(1).max(150),
+      description: z.string().trim().max(5000).optional().nullable(),
+      startsAt: z.string().optional().nullable(),
+      endsAt: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await ctx.prisma.challenge.findUnique({
+        where: { id: input.challengeId },
+        select: { creatorId: true, status: true },
+      });
+      if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
+      if (challenge.creatorId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can edit this challenge." });
+      }
+      if (["COMPLETED", "CANCELLED"].includes(challenge.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot edit a completed challenge." });
+      }
+      const startsAt = parseOptionalDate(input.startsAt);
+      const endsAt = parseOptionalDate(input.endsAt);
+      if (startsAt && endsAt && startsAt > endsAt) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Start date must be before end date." });
+      }
+      const updated = await ctx.prisma.challenge.update({
+        where: { id: input.challengeId },
+        data: {
+          title: input.title.trim(),
+          description: input.description?.trim() || null,
+          startsAt,
+          endsAt,
+        },
+        include: challengeInclude,
+      });
+      return { challenge: updated };
+    }),
+
+  joinChallenge: protectedProcedure
+    .input(z.object({ challengeId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await ctx.prisma.challenge.findUnique({
+        where: { id: input.challengeId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          visibility: true,
+          wagerAmount: true,
+          creatorId: true,
+          participants: { select: { userId: true } },
+        },
+      });
+      if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
+      if (challenge.visibility === Visibility.PRIVATE) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This challenge is private." });
+      }
+      if (["COMPLETED", "CANCELLED"].includes(challenge.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Challenge is no longer accepting participants." });
+      }
+      const alreadyIn = challenge.participants.some((p) => p.userId === ctx.session.user.id);
+      if (alreadyIn) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You are already a participant." });
+      }
+      if (challenge.wagerAmount > 0) {
+        const user = await ctx.prisma.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { balance: true },
+        });
+        if (!user || user.balance < challenge.wagerAmount) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient balance to join this challenge." });
+        }
+      }
+      await ctx.prisma.challengeParticipant.create({
+        data: { challengeId: input.challengeId, userId: ctx.session.user.id },
+      });
+      if (challenge.wagerAmount > 0) {
+        await ctx.prisma.$transaction([
+          ctx.prisma.user.update({
+            where: { id: ctx.session.user.id },
+            data: { balance: { decrement: challenge.wagerAmount } },
+          }),
+          ctx.prisma.pointTransaction.create({
+            data: {
+              userId: ctx.session.user.id,
+              amount: -challenge.wagerAmount,
+              type: TransactionType.CHALLENGE_ENTRY,
+              description: `Challenge entry: ${challenge.title}`,
+            },
+          }),
+        ]);
+      }
+      // Notify creator
+      await ctx.prisma.notification.create({
+        data: {
+          userId: challenge.creatorId,
+          actorId: ctx.session.user.id,
+          type: NotificationType.CHALLENGE_JOINED,
+          entityId: challenge.id,
+          entityType: "challenge",
+          message: `joined your challenge "${challenge.title}"`,
+        },
+      });
+      return { ok: true };
+    }),
+
+  completeChallenge: protectedProcedure
+    .input(z.object({
+      challengeId: z.string(),
+      winnerId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await ctx.prisma.challenge.findUnique({
+        where: { id: input.challengeId },
+        select: {
+          id: true,
+          title: true,
+          creatorId: true,
+          status: true,
+          wagerAmount: true,
+          participants: { select: { userId: true } },
+        },
+      });
+      if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
+      if (challenge.creatorId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can complete this challenge." });
+      }
+      if (["COMPLETED", "CANCELLED"].includes(challenge.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Challenge is already finished." });
+      }
+      const isValidWinner = challenge.participants.some((p) => p.userId === input.winnerId);
+      if (!isValidWinner) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Winner must be a participant." });
+      }
+
+      await ctx.prisma.challenge.update({
+        where: { id: input.challengeId },
+        data: { status: "COMPLETED", winnerId: input.winnerId, completedAt: new Date() },
+      });
+
+      if (challenge.wagerAmount > 0) {
+        const pot = challenge.wagerAmount * challenge.participants.length;
+        await ctx.prisma.$transaction([
+          ctx.prisma.user.update({
+            where: { id: input.winnerId },
+            data: { balance: { increment: pot } },
+          }),
+          ctx.prisma.pointTransaction.create({
+            data: {
+              userId: input.winnerId,
+              amount: pot,
+              type: TransactionType.CHALLENGE_WON,
+              description: `Won challenge: ${challenge.title}`,
+            },
+          }),
+        ]);
+      }
+
+      // Notify all participants
+      const otherParticipants = challenge.participants
+        .map((p) => p.userId)
+        .filter((id) => id !== ctx.session.user.id);
+      if (otherParticipants.length > 0) {
+        await ctx.prisma.notification.createMany({
+          data: otherParticipants.map((userId) => ({
+            userId,
+            actorId: ctx.session.user.id,
+            type: NotificationType.CHALLENGE_COMPLETED,
+            entityId: challenge.id,
+            entityType: "challenge",
+            message: `completed the challenge "${challenge.title}"`,
+          })),
+        });
+      }
+
+      return { ok: true };
+    }),
+
+  cancelChallenge: protectedProcedure
+    .input(z.object({ challengeId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await ctx.prisma.challenge.findUnique({
+        where: { id: input.challengeId },
+        select: {
+          id: true,
+          title: true,
+          creatorId: true,
+          status: true,
+          wagerAmount: true,
+          participants: { select: { userId: true } },
+        },
+      });
+      if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
+      if (challenge.creatorId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can cancel this challenge." });
+      }
+      if (["COMPLETED", "CANCELLED"].includes(challenge.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Challenge is already finished." });
+      }
+
+      await ctx.prisma.challenge.update({
+        where: { id: input.challengeId },
+        data: { status: "CANCELLED" },
+      });
+
+      // Refund all participants if there was a wager
+      if (challenge.wagerAmount > 0) {
+        const refundOps = challenge.participants.flatMap((p) => [
+          ctx.prisma.user.update({
+            where: { id: p.userId },
+            data: { balance: { increment: challenge.wagerAmount } },
+          }),
+          ctx.prisma.pointTransaction.create({
+            data: {
+              userId: p.userId,
+              amount: challenge.wagerAmount,
+              type: TransactionType.CHALLENGE_REFUNDED,
+              description: `Challenge cancelled refund: ${challenge.title}`,
+            },
+          }),
+        ]);
+        await ctx.prisma.$transaction(refundOps);
+      }
+
+      return { ok: true };
+    }),
+
   inviteParticipants: protectedProcedure
     .input(z.object({
       challengeId: z.string(),
@@ -155,7 +396,7 @@ export const challengeRouter = router({
     .mutation(async ({ ctx, input }) => {
       const challenge = await ctx.prisma.challenge.findUnique({
         where: { id: input.challengeId },
-        select: { creatorId: true, participants: { select: { userId: true } } },
+        select: { creatorId: true, title: true, participants: { select: { userId: true } } },
       });
       if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
       if (challenge.creatorId !== ctx.session.user.id) {
@@ -166,6 +407,16 @@ export const challengeRouter = router({
       if (newUserIds.length === 0) return { added: 0 };
       await ctx.prisma.challengeParticipant.createMany({
         data: newUserIds.map((userId) => ({ challengeId: input.challengeId, userId })),
+      });
+      await ctx.prisma.notification.createMany({
+        data: newUserIds.map((userId) => ({
+          userId,
+          actorId: ctx.session.user.id,
+          type: NotificationType.CHALLENGE_INVITED,
+          entityId: input.challengeId,
+          entityType: "challenge",
+          message: `invited you to join "${challenge.title}"`,
+        })),
       });
       return { added: newUserIds.length };
     }),

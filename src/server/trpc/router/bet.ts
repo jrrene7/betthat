@@ -1,4 +1,4 @@
-import { BetStatus, TransactionType, Visibility } from "@prisma/client";
+import { BetStatus, NotificationType, TransactionType, Visibility } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
@@ -62,6 +62,17 @@ export const betRouter = router({
           wagerAmount: input.wagerAmount,
         },
         include: betInclude,
+      });
+      // Notify opponent
+      await ctx.prisma.notification.create({
+        data: {
+          userId: input.opponentId,
+          actorId: ctx.session.user.id,
+          type: NotificationType.BET_RECEIVED,
+          entityId: bet.id,
+          entityType: "bet",
+          message: `challenged you to a bet: "${bet.title}"`,
+        },
       });
       return { bet };
     }),
@@ -139,6 +150,37 @@ export const betRouter = router({
       return { bet };
     }),
 
+  updateBet: protectedProcedure
+    .input(z.object({
+      betId: z.string(),
+      title: z.string().trim().min(1).max(150),
+      description: z.string().trim().max(5000).optional().nullable(),
+      dueAt: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const bet = await ctx.prisma.bet.findUnique({
+        where: { id: input.betId },
+        select: { creatorId: true, status: true },
+      });
+      if (!bet) throw new TRPCError({ code: "NOT_FOUND" });
+      if (bet.creatorId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can edit this bet." });
+      }
+      if (["SETTLED", "DECLINED", "CANCELLED"].includes(bet.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot edit a completed bet." });
+      }
+      const updated = await ctx.prisma.bet.update({
+        where: { id: input.betId },
+        data: {
+          title: input.title.trim(),
+          description: input.description?.trim() || null,
+          dueAt: parseOptionalDate(input.dueAt),
+        },
+        include: betInclude,
+      });
+      return { bet: updated };
+    }),
+
   updateVisibility: protectedProcedure
     .input(z.object({
       betId: z.string(),
@@ -207,6 +249,17 @@ export const betRouter = router({
       }
 
       const updated = await ctx.prisma.bet.findUnique({ where: { id: input.betId }, include: betInclude });
+      // Notify creator that bet was accepted
+      await ctx.prisma.notification.create({
+        data: {
+          userId: bet.creatorId,
+          actorId: ctx.session.user.id,
+          type: NotificationType.BET_ACCEPTED,
+          entityId: bet.id,
+          entityType: "bet",
+          message: `accepted your bet`,
+        },
+      });
       return { bet: updated };
     }),
 
@@ -215,7 +268,7 @@ export const betRouter = router({
     .mutation(async ({ ctx, input }) => {
       const bet = await ctx.prisma.bet.findUnique({
         where: { id: input.betId },
-        select: { id: true, opponentId: true, status: true },
+        select: { id: true, opponentId: true, creatorId: true, status: true },
       });
       if (!bet) throw new TRPCError({ code: "NOT_FOUND", message: "Bet not found." });
       if (bet.opponentId !== ctx.session.user.id) {
@@ -228,6 +281,17 @@ export const betRouter = router({
         where: { id: input.betId },
         data: { status: BetStatus.DECLINED },
         include: betInclude,
+      });
+      // Notify creator that bet was declined
+      await ctx.prisma.notification.create({
+        data: {
+          userId: bet.creatorId,
+          actorId: ctx.session.user.id,
+          type: NotificationType.BET_DECLINED,
+          entityId: bet.id,
+          entityType: "bet",
+          message: `declined your bet`,
+        },
       });
       return { bet: updated };
     }),

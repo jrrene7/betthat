@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { useState } from "react";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
@@ -51,11 +52,28 @@ function UserChip({ user, label }: { user: { id: string; name: string | null; im
   );
 }
 
+function toDatetimeLocal(val: Date | string | null | undefined) {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 16);
+}
+
+function wasUpdated(createdAt: Date | string, updatedAt: Date | string) {
+  return new Date(updatedAt).getTime() - new Date(createdAt).getTime() > 5000;
+}
+
 function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | null }) {
   const utils = trpc.useContext();
   const isParticipant = !!currentUserId && (bet.creatorId === currentUserId || bet.opponentId === currentUserId);
   const isCreator = currentUserId === bet.creatorId;
   const isOpponent = currentUserId === bet.opponentId;
+  const isTerminal = ["DECLINED", "CANCELLED", "SETTLED"].includes(bet.status);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(bet.title);
+  const [editDescription, setEditDescription] = useState(bet.description ?? "");
+  const [editDueAt, setEditDueAt] = useState(toDatetimeLocal(bet.dueAt));
   const acceptMutation = trpc.bet.acceptBet.useMutation({
     onSuccess: () => { toast.success("Bet accepted!"); utils.bet.getBet.invalidate(); utils.bet.getInbox.invalidate(); },
     onError: () => toast.error("Could not accept bet"),
@@ -72,6 +90,15 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
     onSuccess: () => { toast.success("Visibility updated"); utils.bet.getBet.invalidate(); },
     onError: () => toast.error("Could not update visibility"),
   });
+  const updateMutation = trpc.bet.updateBet.useMutation({
+    onSuccess: () => {
+      toast.success("Bet updated!");
+      setIsEditing(false);
+      utils.bet.getBet.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not update bet"),
+  });
+
   const voteMutation = trpc.bet.castBetVote.useMutation({
     onSuccess: () => { utils.bet.getBet.invalidate(); },
     onError: () => toast.error("Could not cast vote"),
@@ -87,8 +114,6 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
   });
 
   const anyLoading = acceptMutation.isLoading || declineMutation.isLoading || settleMutation.isLoading;
-  const terminalStatuses = ["DECLINED", "CANCELLED", "SETTLED"];
-  const isTerminal = terminalStatuses.includes(bet.status);
 
   return (
     <div className="mx-auto max-w-xl px-4 pb-10 md:px-5">
@@ -116,18 +141,79 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
 
       {/* Bet details */}
       <div className="mb-6 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
-        <h2 className="text-lg font-bold">{bet.title}</h2>
-        {bet.description && (
-          <p className="mt-2 text-sm text-gray-300 whitespace-pre-wrap">{bet.description}</p>
-        )}
-        {bet.wagerAmount > 0 && (
-          <p className="mt-3 text-sm font-semibold text-yellow-400">{bet.wagerAmount} pts wagered each</p>
-        )}
-        {bet.dueAt && (
-          <p className="mt-3 text-xs text-gray-500">Due: {new Date(bet.dueAt).toLocaleString()}</p>
-        )}
-        {bet.resolvedAt && (
-          <p className="mt-1 text-xs text-gray-500">Settled: {new Date(bet.resolvedAt).toLocaleString()}</p>
+        {!isEditing ? (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-lg font-bold">{bet.title}</h2>
+              {isCreator && !isTerminal && (
+                <button
+                  onClick={() => { setEditTitle(bet.title); setEditDescription(bet.description ?? ""); setEditDueAt(toDatetimeLocal(bet.dueAt)); setIsEditing(true); }}
+                  className="flex-shrink-0 rounded p-1 text-gray-500 hover:bg-[#2a2a2a] hover:text-white"
+                >
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {bet.description && (
+              <p className="mt-2 text-sm text-gray-300 whitespace-pre-wrap">{bet.description}</p>
+            )}
+            {bet.wagerAmount > 0 && (
+              <p className="mt-3 text-sm font-semibold text-yellow-400">{bet.wagerAmount} pts wagered each</p>
+            )}
+            {bet.dueAt && (
+              <p className="mt-3 text-xs text-gray-500">Due: {new Date(bet.dueAt).toLocaleString()}</p>
+            )}
+            {bet.resolvedAt && (
+              <p className="mt-1 text-xs text-gray-500">Settled: {new Date(bet.resolvedAt).toLocaleString()}</p>
+            )}
+            {wasUpdated(bet.createdAt, bet.updatedAt) && (
+              <p className="mt-2 text-xs text-gray-600">Last updated {calculateCreatedTime(bet.updatedAt)}</p>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={150}
+              placeholder="Bet title"
+              className="w-full rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={3}
+              maxLength={5000}
+              placeholder="Conditions (optional)"
+              className="w-full resize-none rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+            />
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Due date (optional)</label>
+              <input
+                type="datetime-local"
+                value={editDueAt}
+                onChange={(e) => setEditDueAt(e.target.value)}
+                className="w-full rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="flex-1 rounded-lg border border-[#3f3f3f] py-2 text-sm font-semibold text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={updateMutation.isLoading || !editTitle.trim()}
+                onClick={() => updateMutation.mutate({ betId: bet.id, title: editTitle, description: editDescription || null, dueAt: editDueAt || null })}
+                className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
+              >
+                {updateMutation.isLoading ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

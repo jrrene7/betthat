@@ -8,6 +8,7 @@ import { betRouter } from "./bet";
 import { challengeRouter } from "./challenge";
 import { feedRouter } from "./feed";
 import { userRouter } from "./user";
+import { notificationRouter } from "./notification";
 
 export const appRouter = router({
     like: likeRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
     challenge: challengeRouter,
     feed: feedRouter,
     user: userRouter,
+    notification: notificationRouter,
 });
 
 // export type definition of API

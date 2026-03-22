@@ -15,8 +15,20 @@ function isVideoUrl(url: string) {
   return url.includes("/video/upload/") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(url);
 }
 
+function toDatetimeLocal(val: Date | string | null | undefined) {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 16);
+}
+
+function wasUpdated(createdAt: Date | string, updatedAt: Date | string) {
+  return new Date(updatedAt).getTime() - new Date(createdAt).getTime() > 5000;
+}
+
 type Challenge = RouterOutputs["challenge"]["getChallenge"]["challenge"];
 type Submission = RouterOutputs["challenge"]["getSubmissions"]["submissions"][number];
+type Participant = Challenge["participants"][number];
 
 const VISIBILITY_LABELS: Record<string, string> = {
   PUBLIC: "Public",
@@ -126,7 +138,14 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
   const utils = trpc.useContext();
   const isCreator = currentUserId === challenge.creatorId;
   const isParticipant = challenge.participants.some((p) => p.userId === currentUserId);
+  const isTerminal = ["COMPLETED", "CANCELLED"].includes(challenge.status);
   const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
+  const [editTitle, setEditTitle] = useState(challenge.title);
+  const [editDescription, setEditDescription] = useState(challenge.description ?? "");
+  const [editStartsAt, setEditStartsAt] = useState(toDatetimeLocal(challenge.startsAt));
+  const [editEndsAt, setEditEndsAt] = useState(toDatetimeLocal(challenge.endsAt));
 
   const { data: suggestionsData } = trpc.follow.getAccountSuggestion.useQuery(undefined, {
     enabled: isCreator,
@@ -148,6 +167,40 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
   const visibilityMutation = trpc.challenge.updateVisibility.useMutation({
     onSuccess: () => { toast.success("Visibility updated"); utils.challenge.getChallenge.invalidate(); },
     onError: () => toast.error("Could not update visibility"),
+  });
+
+  const updateMutation = trpc.challenge.updateChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("Challenge updated!");
+      setIsEditing(false);
+      utils.challenge.getChallenge.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not update challenge"),
+  });
+
+  const joinMutation = trpc.challenge.joinChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("You joined the challenge!");
+      utils.challenge.getChallenge.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not join challenge"),
+  });
+
+  const completeMutation = trpc.challenge.completeChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("Challenge completed!");
+      setIsPicking(false);
+      utils.challenge.getChallenge.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not complete challenge"),
+  });
+
+  const cancelMutation = trpc.challenge.cancelChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("Challenge cancelled.");
+      utils.challenge.getChallenge.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not cancel challenge"),
   });
 
   const submitMutation = trpc.challenge.submitToChallenge.useMutation({
@@ -189,26 +242,98 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
 
       {/* Details */}
       <div className="mb-6 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
-        <h2 className="text-lg font-bold">{challenge.title}</h2>
-        {challenge.description && (
-          <p className="mt-2 text-sm text-gray-300 whitespace-pre-wrap">{challenge.description}</p>
-        )}
-        {(challenge.startsAt || challenge.endsAt) && (
-          <div className="mt-3 flex gap-4 text-xs text-gray-500">
-            {challenge.startsAt && <span>Starts: {new Date(challenge.startsAt).toLocaleString()}</span>}
-            {challenge.endsAt && <span>Ends: {new Date(challenge.endsAt).toLocaleString()}</span>}
+        {!isEditing ? (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-lg font-bold">{challenge.title}</h2>
+              {isCreator && !isTerminal && (
+                <button
+                  onClick={() => { setEditTitle(challenge.title); setEditDescription(challenge.description ?? ""); setEditStartsAt(toDatetimeLocal(challenge.startsAt)); setEditEndsAt(toDatetimeLocal(challenge.endsAt)); setIsEditing(true); }}
+                  className="flex-shrink-0 rounded p-1 text-gray-500 hover:bg-[#2a2a2a] hover:text-white"
+                >
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {challenge.description && (
+              <p className="mt-2 text-sm text-gray-300 whitespace-pre-wrap">{challenge.description}</p>
+            )}
+            {(challenge.startsAt || challenge.endsAt) && (
+              <div className="mt-3 flex gap-4 text-xs text-gray-500">
+                {challenge.startsAt && <span>Starts: {new Date(challenge.startsAt).toLocaleString()}</span>}
+                {challenge.endsAt && <span>Ends: {new Date(challenge.endsAt).toLocaleString()}</span>}
+              </div>
+            )}
+            {challenge.wagerAmount > 0 && (
+              <p className="mt-3 text-sm font-semibold text-yellow-400">
+                {challenge.wagerAmount.toLocaleString()} pts buy-in · pot: {(challenge.wagerAmount * challenge._count.participants).toLocaleString()} pts
+              </p>
+            )}
+            <div className="mt-3 flex gap-4 text-xs text-gray-500">
+              <span>{challenge._count.participants} participants</span>
+              <span>{challenge._count.submissions} submissions</span>
+              <span>{challenge._count.bets} bets</span>
+            </div>
+            {wasUpdated(challenge.createdAt, challenge.updatedAt) && (
+              <p className="mt-2 text-xs text-gray-600">Last updated {calculateCreatedTime(challenge.updatedAt)}</p>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={150}
+              placeholder="Challenge title"
+              className="w-full rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={3}
+              maxLength={5000}
+              placeholder="Rules (optional)"
+              className="w-full resize-none rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:outline-none"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Starts (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={editStartsAt}
+                  onChange={(e) => setEditStartsAt(e.target.value)}
+                  className="w-full rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Ends (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={editEndsAt}
+                  onChange={(e) => setEditEndsAt(e.target.value)}
+                  className="w-full rounded-lg border border-[#3f3f3f] bg-[#121212] px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="flex-1 rounded-lg border border-[#3f3f3f] py-2 text-sm font-semibold text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={updateMutation.isLoading || !editTitle.trim()}
+                onClick={() => updateMutation.mutate({ challengeId: challenge.id, title: editTitle, description: editDescription || null, startsAt: editStartsAt || null, endsAt: editEndsAt || null })}
+                className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
+              >
+                {updateMutation.isLoading ? "Saving..." : "Save changes"}
+              </button>
+            </div>
           </div>
         )}
-        {challenge.wagerAmount > 0 && (
-          <p className="mt-3 text-sm font-semibold text-yellow-400">
-            {challenge.wagerAmount.toLocaleString()} pts buy-in · pot: {(challenge.wagerAmount * challenge._count.participants).toLocaleString()} pts
-          </p>
-        )}
-        <div className="mt-3 flex gap-4 text-xs text-gray-500">
-          <span>{challenge._count.participants} participants</span>
-          <span>{challenge._count.submissions} submissions</span>
-          <span>{challenge._count.bets} bets</span>
-        </div>
       </div>
 
       {/* Participants */}
@@ -232,6 +357,101 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Join button — non-participants on open public/unlisted challenges */}
+      {!isParticipant && currentUserId && !isTerminal && challenge.visibility !== "PRIVATE" && (
+        <div className="mb-6 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
+          {challenge.wagerAmount > 0 && (
+            <p className="mb-2 text-sm text-yellow-400">
+              Joining requires {challenge.wagerAmount.toLocaleString()} pts buy-in
+            </p>
+          )}
+          <button
+            disabled={joinMutation.isLoading}
+            onClick={() => joinMutation.mutate({ challengeId: challenge.id })}
+            className="w-full rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
+          >
+            {joinMutation.isLoading ? "Joining..." : "Join Challenge"}
+          </button>
+        </div>
+      )}
+
+      {/* Complete / Cancel — creator only, non-terminal */}
+      {isCreator && !isTerminal && (
+        <div className="mb-6 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
+          {!isPicking ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsPicking(true)}
+                className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white hover:bg-[#e0354f]"
+              >
+                Complete &amp; Pick Winner
+              </button>
+              <button
+                disabled={cancelMutation.isLoading}
+                onClick={() => {
+                  if (confirm("Cancel this challenge? Wagers will be refunded.")) {
+                    cancelMutation.mutate({ challengeId: challenge.id });
+                  }
+                }}
+                className="flex-1 rounded-lg border border-[#3f3f3f] py-2 text-sm font-semibold text-gray-400 hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+              >
+                {cancelMutation.isLoading ? "Cancelling..." : "Cancel Challenge"}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-3 text-sm font-semibold">Who won?</p>
+              <div className="mb-3 flex flex-col gap-2">
+                {challenge.participants.map((p: Participant) => (
+                  <button
+                    key={p.id}
+                    disabled={completeMutation.isLoading}
+                    onClick={() => completeMutation.mutate({ challengeId: challenge.id, winnerId: p.userId })}
+                    className="flex items-center gap-3 rounded-lg border border-[#3f3f3f] px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                  >
+                    <LazyLoadImage
+                      src={p.user.image ?? undefined}
+                      className="h-7 w-7 rounded-full"
+                      effect="opacity"
+                    />
+                    <span>{p.user.name ?? "Unknown"}</span>
+                    {p.userId === challenge.creatorId && (
+                      <span className="ml-1 text-xs text-gray-500">(creator)</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setIsPicking(false)}
+                className="w-full rounded-lg border border-[#3f3f3f] py-2 text-sm text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Winner banner */}
+      {challenge.status === "COMPLETED" && challenge.winner && (
+        <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Winner</p>
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <LazyLoadImage
+              src={challenge.winner.image ?? undefined}
+              className="h-8 w-8 rounded-full"
+              effect="opacity"
+            />
+            <p className="font-bold text-yellow-300">{challenge.winner.name ?? "Unknown"}</p>
+          </div>
+          {challenge.wagerAmount > 0 && (
+            <p className="mt-1 text-sm text-yellow-400">
+              Won {(challenge.wagerAmount * challenge._count.participants).toLocaleString()} pts
+            </p>
+          )}
         </div>
       )}
 

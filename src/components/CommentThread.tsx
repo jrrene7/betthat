@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { LazyLoadImage } from "react-lazy-load-image-component";
 import toast from "react-hot-toast";
+import Avatar from "src/components/Avatar";
 import { calculateCreatedTime } from "src/utils";
 
 interface CommentUser {
@@ -32,14 +32,15 @@ interface Props {
   onDelete: (commentId: string) => Promise<void>;
 }
 
-function Avatar({ src, size = 8 }: { src?: string | null; size?: number }) {
-  return (
-    <LazyLoadImage
-      src={src ?? undefined}
-      className={`h-${size} w-${size} flex-shrink-0 rounded-full object-cover`}
-      effect="opacity"
-    />
-  );
+const AVATAR_SIZE: Record<number, string> = {
+  6: "h-6 w-6",
+  7: "h-7 w-7",
+  8: "h-8 w-8",
+  9: "h-9 w-9",
+};
+
+function Av({ src, size = 8 }: { src?: string | null; size?: 6 | 7 | 8 | 9 }) {
+  return <Avatar src={src} className={`${AVATAR_SIZE[size]} flex-shrink-0 rounded-full object-cover`} />;
 }
 
 function ReplyComposer({
@@ -72,7 +73,7 @@ function ReplyComposer({
 
   return (
     <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
-      <Avatar src={currentUserImage} size={6} />
+      <Av src={currentUserImage} size={6} />
       <div className="flex-1">
         <textarea
           ref={ref}
@@ -125,7 +126,7 @@ function CommentItem({
   return (
     <div className="flex gap-3">
       <Link href={`/account/${comment.user.id}`} className="flex-shrink-0">
-        <Avatar src={comment.user.image} size={8} />
+        <Av src={comment.user.image} size={8} />
       </Link>
       <div className="min-w-0 flex-1">
         {/* Bubble */}
@@ -183,7 +184,7 @@ function CommentItem({
             {comment.replies.map((reply) => (
               <div key={reply.id} className="flex gap-2">
                 <Link href={`/account/${reply.user.id}`} className="flex-shrink-0">
-                  <Avatar src={reply.user.image} size={7} />
+                  <Av src={reply.user.image} size={7} />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <div className="rounded-2xl bg-[#1a1a1a] px-3 py-2">
@@ -242,7 +243,7 @@ export default function CommentThread({ comments, isLoading, currentUserId, onAd
       {/* Top-level composer */}
       {currentUserId ? (
         <form onSubmit={handleSubmit} className="mb-6 flex gap-3">
-          <Avatar src={session?.user?.image} size={9} />
+          <Av src={session?.user?.image} size={9} />
           <div className="flex-1">
             <textarea
               ref={inputRef}

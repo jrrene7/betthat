@@ -2,7 +2,7 @@ import { useState } from "react";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import toast from "react-hot-toast";
 import AppLayout from "src/layouts/AppLayout";
 import Sidebar from "src/components/Sidebar";
@@ -53,7 +53,7 @@ function BetInboxItem({ bet }: { bet: Bet }) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link href={`/account/${bet.creator.id}`}>
-            <LazyLoadImage src={bet.creator.image ?? undefined} className="h-10 w-10 rounded-full" effect="opacity" />
+            <Avatar src={bet.creator.image} className="h-10 w-10 rounded-full" />
           </Link>
           <div>
             <p className="text-sm font-semibold">

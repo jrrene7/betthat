@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import AppLayout from "src/layouts/AppLayout";
 import Sidebar from "src/components/Sidebar";
 import { trpc } from "src/utils/trpc";
@@ -25,11 +25,7 @@ function UserRow({ user, sortBy }: { user: LeaderboardUser; sortBy: SortBy }) {
         <span className={`w-7 text-center text-lg font-bold ${rankColor(user.rank)}`}>
           {user.rank <= 3 ? MEDALS[user.rank - 1] : user.rank}
         </span>
-        <LazyLoadImage
-          src={user.image ?? undefined}
-          className="h-10 w-10 flex-shrink-0 rounded-full"
-          effect="opacity"
-        />
+        <Avatar src={user.image} className="h-10 w-10 flex-shrink-0 rounded-full" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{user.name ?? "Unknown"}</p>
         </div>

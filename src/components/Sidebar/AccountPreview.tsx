@@ -1,4 +1,4 @@
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import { Account } from "src/types";
 import { getUsername } from "src/utils";
 
@@ -11,7 +11,7 @@ export default function AccountPreview({ account }: Props) {
     <div className="hidden w-[320px] rounded-[10px] bg-[#333] p-4 lg:block">
       <div className="flex items-center justify-between">
         <div className="mr-3 h-10 w-10">
-          <LazyLoadImage src={account?.image} className="rounded-full" effect="opacity" />
+          <Avatar src={account?.image} className="h-10 w-10 rounded-full" />
         </div>
       </div>
       <div className="mt-4">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 
 interface Props {}
 
@@ -10,7 +10,7 @@ export default function AccountItem({}: Props) {
       className="flex flex-col items-center rounded-md border border-[#2f2f2f] p-4"
     >
       <div className="h-[60px] w-[60px]">
-        <LazyLoadImage className="rounded-full" effect="opacity" />
+        <Avatar className="h-[60px] w-[60px] rounded-full" />
       </div>
       <div className="mt-4 flex flex-1 flex-col items-center justify-center">
         <h3 className="line-clamp-1 text-[16px] font-bold hover:underline">

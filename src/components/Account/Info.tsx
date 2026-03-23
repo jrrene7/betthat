@@ -1,5 +1,5 @@
 import { Profile } from "src/types/index";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import { getUsername } from "src/utils";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -36,11 +36,7 @@ export default function Info({ profile, isFollow }: Props) {
     <div className="px-4 xl:px-0">
       <div className="flex items-center">
         <div className="h-[116px] w-[116px]">
-          <LazyLoadImage
-            className="h-[116px] w-[116px] rounded-full"
-            effect="opacity"
-            src={profile?.image}
-          />
+          <Avatar src={profile?.image} className="h-[116px] w-[116px] rounded-full" />
         </div>
         <div className="ml-5 flex-1">
           <h1 className="text-[20px] font-semibold">

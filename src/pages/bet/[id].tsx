@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import AppLayout from "src/layouts/AppLayout";
@@ -46,7 +46,7 @@ function UserChip({ user, label }: { user: { id: string; name: string | null; im
     <div className="flex flex-col items-center gap-2">
       <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
       <Link href={`/account/${user.id}`} className="flex flex-col items-center gap-1 hover:opacity-80">
-        <LazyLoadImage src={user.image ?? undefined} className="h-14 w-14 rounded-full" effect="opacity" />
+        <Avatar src={user.image} className="h-14 w-14 rounded-full" />
         <p className="text-sm font-semibold">{user.name ?? "Unknown"}</p>
       </Link>
     </div>
@@ -337,7 +337,7 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
                           : "border-[#3f3f3f] text-gray-300 hover:border-gray-300"
                       }`}
                     >
-                      <LazyLoadImage src={user.image ?? undefined} className="h-8 w-8 rounded-full" effect="opacity" />
+                      <Avatar src={user.image} className="h-8 w-8 rounded-full" />
                       <span>{label}</span>
                       {isMyPick && <span className="text-[10px] text-primary">Your pick</span>}
                     </button>
@@ -374,7 +374,7 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
               <div key={sub.id} className="rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <Link href={`/account/${sub.user.id}`} className="flex items-center gap-2 hover:opacity-80">
-                    <LazyLoadImage src={sub.user.image ?? undefined} className="h-7 w-7 rounded-full" effect="opacity" />
+                    <Avatar src={sub.user.image} className="h-7 w-7 rounded-full" />
                     <span className="text-sm font-semibold">{sub.user.name ?? "Unknown"}</span>
                   </Link>
                   <span className="ml-auto text-xs text-gray-500">{calculateCreatedTime(sub.createdAt)}</span>

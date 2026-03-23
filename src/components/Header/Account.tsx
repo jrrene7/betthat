@@ -1,7 +1,7 @@
 import Tippy from "@tippyjs/react/headless";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import Login from "src/icons/Login";
 import Plus from "src/icons/Plus";
 import { useUploadModal } from "src/context/UploadModalContext";
@@ -48,7 +48,7 @@ export default function HeaderAccount() {
         <Tippy interactive placement="bottom-end" render={() => <Dropdown userId={data?.user?.id} />}>
           <div className="cursor-pointer">
             <div className="h-8 w-8">
-              <LazyLoadImage src={data?.user?.image!} className="rounded-full" effect="opacity" />
+              <Avatar src={data?.user?.image} className="h-8 w-8 rounded-full" />
             </div>
           </div>
         </Tippy>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import { calculateCreatedTime } from "src/utils";
 import { RouterOutputs } from "src/utils/trpc";
 
@@ -62,11 +62,7 @@ export default function ChallengeCard({ challenge }: Props) {
 
       {/* Creator + stats */}
       <div className="flex items-center gap-2">
-        <LazyLoadImage
-          src={challenge.creator.image ?? undefined}
-          className="h-6 w-6 rounded-full"
-          effect="opacity"
-        />
+        <Avatar src={challenge.creator.image} className="h-6 w-6 rounded-full" />
         <span className="text-sm text-gray-300">{challenge.creator.name ?? "Unknown"}</span>
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
           <span>{challenge._count.participants} participants</span>

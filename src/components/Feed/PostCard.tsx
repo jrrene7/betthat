@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
 import { useSession } from "next-auth/react";
+import Avatar from "src/components/Avatar";
 import toast from "react-hot-toast";
 import { calculateCreatedTime, getUsername } from "src/utils";
 import { trpc } from "src/utils/trpc";
@@ -78,7 +78,7 @@ export default function PostCard({ post }: Props) {
       <div className="flex w-full items-start">
         {/* Avatar */}
         <Link href={`/account/${author.id}`} className="hidden h-[56px] w-[56px] flex-shrink-0 lg:block">
-          <LazyLoadImage src={author.image ?? undefined} className="rounded-full" effect="opacity" />
+          <Avatar src={author.image} className="h-[56px] w-[56px] rounded-full" />
         </Link>
 
         <div className="mx-3 flex-1 min-w-0">
@@ -86,7 +86,7 @@ export default function PostCard({ post }: Props) {
           <div className="flex items-start justify-between">
             <Link href={`/account/${author.id}`} className="flex items-center">
               <div className="mr-3 block h-[56px] w-[56px] flex-shrink-0 lg:hidden">
-                <LazyLoadImage src={author.image ?? undefined} className="rounded-full" effect="opacity" />
+                <Avatar src={author.image} className="h-[56px] w-[56px] rounded-full" />
               </div>
               <div className="flex flex-col md:flex-row md:items-center">
                 <h3 className="line-clamp-1 text-[16px] font-bold hover:underline">
@@ -180,11 +180,7 @@ export default function PostCard({ post }: Props) {
                 {comments.map((c) => (
                   <div key={c.id} className="flex items-start gap-2">
                     <Link href={`/account/${c.user.id}`} className="flex-shrink-0">
-                      <LazyLoadImage
-                        src={c.user.image ?? undefined}
-                        className="h-7 w-7 rounded-full"
-                        effect="opacity"
-                      />
+                      <Avatar src={c.user.image} className="h-7 w-7 rounded-full" />
                     </Link>
                     <div className="min-w-0 rounded-xl bg-[#1a1a1a] px-3 py-2">
                       <p className="text-xs font-semibold text-gray-300">
@@ -199,11 +195,7 @@ export default function PostCard({ post }: Props) {
               {/* Comment input */}
               <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
                 {session?.user?.image && (
-                  <LazyLoadImage
-                    src={session.user.image}
-                    className="h-7 w-7 flex-shrink-0 rounded-full"
-                    effect="opacity"
-                  />
+                  <Avatar src={session.user.image} className="h-7 w-7 flex-shrink-0 rounded-full" />
                 )}
                 <input
                   ref={inputRef}

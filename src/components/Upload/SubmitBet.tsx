@@ -1,4 +1,4 @@
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 
 interface AccountOption {
   id: string;
@@ -83,15 +83,7 @@ export default function SubmitBet({
                   isSelected ? "bg-primary/10 text-white" : "text-gray-300"
                 }`}
               >
-                <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[#2a2a2a]">
-                  {account.image && (
-                    <LazyLoadImage
-                      src={account.image}
-                      className="h-full w-full object-cover"
-                      effect="opacity"
-                    />
-                  )}
-                </div>
+                <Avatar src={account.image} className="h-8 w-8 flex-shrink-0 rounded-full" />
                 <span className="flex-1 font-medium">{account.name ?? "Unknown"}</span>
                 {isSelected && (
                   <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" className="text-primary">

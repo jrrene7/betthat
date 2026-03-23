@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import AppLayout from "src/layouts/AppLayout";
@@ -67,11 +67,7 @@ function SubmissionCard({ submission, currentUserId, challengeId }: {
     <div className="rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
       <div className="mb-3 flex items-center gap-3">
         <Link href={`/account/${submission.user.id}`} className="flex items-center gap-2 hover:opacity-80">
-          <LazyLoadImage
-            src={submission.user.image ?? undefined}
-            className="h-8 w-8 rounded-full"
-            effect="opacity"
-          />
+          <Avatar src={submission.user.image} className="h-8 w-8 rounded-full" />
           <span className="text-sm font-semibold">{submission.user.name ?? "Unknown"}</span>
         </Link>
         <span className="ml-auto text-xs text-gray-500">{calculateCreatedTime(submission.createdAt)}</span>
@@ -237,11 +233,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
 
       {/* Creator */}
       <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
-        <LazyLoadImage
-          src={challenge.creator.image ?? undefined}
-          className="h-10 w-10 rounded-full"
-          effect="opacity"
-        />
+        <Avatar src={challenge.creator.image} className="h-10 w-10 rounded-full" />
         <div>
           <p className="text-xs text-gray-500">Created by</p>
           <Link href={`/account/${challenge.creator.id}`} className="font-semibold hover:underline">
@@ -354,11 +346,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
           <div className="flex flex-wrap gap-3">
             {challenge.participants.map((p) => (
               <Link key={p.id} href={`/account/${p.user.id}`} className="flex items-center gap-2 hover:opacity-80">
-                <LazyLoadImage
-                  src={p.user.image ?? undefined}
-                  className="h-8 w-8 rounded-full"
-                  effect="opacity"
-                />
+                <Avatar src={p.user.image} className="h-8 w-8 rounded-full" />
                 <span className="text-sm">
                   {p.user.name ?? "Unknown"}
                   {p.userId === challenge.creatorId && (
@@ -423,11 +411,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
                     onClick={() => completeMutation.mutate({ challengeId: challenge.id, winnerId: p.userId })}
                     className="flex items-center gap-3 rounded-lg border border-[#3f3f3f] px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
                   >
-                    <LazyLoadImage
-                      src={p.user.image ?? undefined}
-                      className="h-7 w-7 rounded-full"
-                      effect="opacity"
-                    />
+                    <Avatar src={p.user.image} className="h-7 w-7 rounded-full" />
                     <span>{p.user.name ?? "Unknown"}</span>
                     {p.userId === challenge.creatorId && (
                       <span className="ml-1 text-xs text-gray-500">(creator)</span>
@@ -451,11 +435,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
         <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-center">
           <p className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Winner</p>
           <div className="mt-2 flex items-center justify-center gap-2">
-            <LazyLoadImage
-              src={challenge.winner.image ?? undefined}
-              className="h-8 w-8 rounded-full"
-              effect="opacity"
-            />
+            <Avatar src={challenge.winner.image} className="h-8 w-8 rounded-full" />
             <p className="font-bold text-yellow-300">{challenge.winner.name ?? "Unknown"}</p>
           </div>
           {challenge.wagerAmount > 0 && (
@@ -522,11 +502,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
                       selected ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-[#2a2a2a]"
                     }`}
                   >
-                    <LazyLoadImage
-                      src={user.image ?? undefined}
-                      className="h-8 w-8 flex-shrink-0 rounded-full"
-                      effect="opacity"
-                    />
+                    <Avatar src={user.image} className="h-8 w-8 flex-shrink-0 rounded-full" />
                     <span className="flex-1 text-sm font-semibold">{user.name ?? "Unknown"}</span>
                     <div className={`h-4 w-4 flex-shrink-0 rounded border ${
                       selected ? "border-primary bg-primary" : "border-gray-500"

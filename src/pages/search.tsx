@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import AppLayout from "src/layouts/AppLayout";
 import Sidebar from "src/components/Sidebar";
 import { trpc } from "src/utils/trpc";
@@ -48,11 +48,7 @@ function AccountResults({ users }: { users: SearchResult["users"] }) {
           href={`/account/${user.id}`}
           className="flex items-center gap-4 rounded-xl border border-[#2f2f2f] bg-[#1a1a1a] px-4 py-3 transition-colors hover:border-[#3f3f3f]"
         >
-          <LazyLoadImage
-            src={user.image ?? undefined}
-            className="h-12 w-12 flex-shrink-0 rounded-full"
-            effect="opacity"
-          />
+          <Avatar src={user.image} className="h-12 w-12 flex-shrink-0 rounded-full" />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{user.name ?? "Unknown"}</p>
             <p className="text-sm text-gray-500">
@@ -89,10 +85,10 @@ function BetResults({ bets }: { bets: SearchResult["bets"] }) {
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <LazyLoadImage src={bet.creator.image ?? undefined} className="h-5 w-5 rounded-full" effect="opacity" />
+            <Avatar src={bet.creator.image} className="h-5 w-5 rounded-full" />
             <span>{bet.creator.name ?? "?"}</span>
             <span className="font-bold text-primary">VS</span>
-            <LazyLoadImage src={bet.opponent.image ?? undefined} className="h-5 w-5 rounded-full" effect="opacity" />
+            <Avatar src={bet.opponent.image} className="h-5 w-5 rounded-full" />
             <span>{bet.opponent.name ?? "?"}</span>
             <span className="ml-auto">{calculateCreatedTime(bet.createdAt)}</span>
           </div>
@@ -125,7 +121,7 @@ function ChallengeResults({ challenges }: { challenges: SearchResult["challenges
             <p className="line-clamp-2 text-sm text-gray-400">{c.description}</p>
           )}
           <div className="flex items-center gap-3 text-xs text-gray-500">
-            <LazyLoadImage src={c.creator.image ?? undefined} className="h-5 w-5 rounded-full" effect="opacity" />
+            <Avatar src={c.creator.image} className="h-5 w-5 rounded-full" />
             <span>{c.creator.name ?? "Unknown"}</span>
             <span>{c._count.participants} joined</span>
             {c.wagerAmount > 0 && (

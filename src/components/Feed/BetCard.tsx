@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import { calculateCreatedTime } from "src/utils";
 import { RouterOutputs } from "src/utils/trpc";
 
@@ -63,19 +63,12 @@ export default function BetCard({ bet }: Props) {
       {/* Participants */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <LazyLoadImage
-            src={bet.creator.image ?? undefined}
-            className="h-7 w-7 rounded-full"
-            effect="opacity"
-          />
+          <Avatar src={bet.creator.image} className="h-7 w-7 rounded-full" />
           <span className="text-sm font-semibold">{bet.creator.name ?? "Unknown"}</span>
         </div>
         <span className="text-xs font-bold text-primary">VS</span>
         <div className="flex items-center gap-1.5">
-          <LazyLoadImage
-            src={bet.opponent.image ?? undefined}
-            className="h-7 w-7 rounded-full"
-            effect="opacity"
+          <Avatar src={bet.opponent.image} className="h-7 w-7 rounded-full"
           />
           <span className="text-sm font-semibold">{bet.opponent.name ?? "Unknown"}</span>
         </div>

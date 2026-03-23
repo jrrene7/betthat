@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import PostCard from "src/components/Feed/PostCard";
 import { Profile } from "src/types";
 import { trpc } from "src/utils/trpc";
@@ -147,18 +147,10 @@ export default function ProfileTabs({ profile }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <LazyLoadImage
-                      src={bet.creator.image ?? undefined}
-                      className="h-5 w-5 rounded-full"
-                      effect="opacity"
-                    />
+                    <Avatar src={bet.creator.image} className="h-5 w-5 rounded-full" />
                     <span>{bet.creator.name ?? "Unknown"}</span>
                     <span>vs</span>
-                    <LazyLoadImage
-                      src={bet.opponent.image ?? undefined}
-                      className="h-5 w-5 rounded-full"
-                      effect="opacity"
-                    />
+                    <Avatar src={bet.opponent.image} className="h-5 w-5 rounded-full" />
                     <span>{bet.opponent.name ?? "Unknown"}</span>
                     <span className="ml-auto">{calculateCreatedTime(bet.createdAt)}</span>
                   </div>

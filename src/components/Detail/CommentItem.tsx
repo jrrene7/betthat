@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LazyLoadImage } from "react-lazy-load-image-component";
+import Avatar from "src/components/Avatar";
 import { Comment } from "src/types";
 import { calculateCreatedTime } from "src/utils";
 
@@ -12,11 +12,7 @@ export default function CommentItem({ comment }: Props) {
     <div className="border-b border-[#2f2f2f] py-3">
       <div className="flex items-center px-4 lg:px-5">
         <Link href={`/account/${comment.user.id}`} className="block h-10 w-10">
-          <LazyLoadImage
-            src={comment.user.image}
-            className="rounded-full"
-            effect="opacity"
-          />
+          <Avatar src={comment.user.image} className="h-10 w-10 rounded-full" />
         </Link>
         <div className="ml-3 flex-1">
           <h3 className="text-[15px] font-semibold hover:underline">

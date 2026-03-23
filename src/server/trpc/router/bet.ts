@@ -1,7 +1,97 @@
-import { BetStatus, NotificationType, TransactionType, Visibility } from "@prisma/client";
+import { BetStatus, NotificationType, PrismaClient, TransactionType, Visibility } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
+
+type PrismaCtx = { prisma: PrismaClient; session: { user: { id: string } } };
+
+async function doSettle(
+  prisma: PrismaClient,
+  betId: string,
+  winnerId: string,
+  creatorId: string,
+  opponentId: string,
+  wagerAmount: number,
+) {
+  const loserId = winnerId === creatorId ? opponentId : creatorId;
+  if (wagerAmount > 0) {
+    const payout = wagerAmount * 2;
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: winnerId }, data: { balance: { increment: payout } } }),
+      prisma.pointTransaction.create({ data: { userId: winnerId, amount: payout, type: TransactionType.BET_WON, betId, description: "Bet won" } }),
+      prisma.pointTransaction.create({ data: { userId: loserId, amount: 0, type: TransactionType.BET_LOST, betId, description: "Bet lost" } }),
+      prisma.bet.update({ where: { id: betId }, data: { status: BetStatus.SETTLED, winnerId, resolvedAt: new Date() } }),
+    ]);
+  } else {
+    await prisma.bet.update({ where: { id: betId }, data: { status: BetStatus.SETTLED, winnerId, resolvedAt: new Date() } });
+  }
+}
+
+async function castSettleVoteImpl(ctx: PrismaCtx, betId: string, winnerId: string) {
+  const bet = await ctx.prisma.bet.findUnique({
+    where: { id: betId },
+    select: { id: true, creatorId: true, opponentId: true, status: true, wagerAmount: true, creatorSettleVote: true, opponentSettleVote: true },
+  });
+  if (!bet) throw new TRPCError({ code: "NOT_FOUND", message: "Bet not found." });
+  const userId = ctx.session.user.id;
+  const isCreator = userId === bet.creatorId;
+  const isOpponent = userId === bet.opponentId;
+  if (!isCreator && !isOpponent) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied." });
+  if (bet.status !== BetStatus.ACTIVE && bet.status !== BetStatus.DISPUTED) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Only active or disputed bets can be settled." });
+  }
+  if (winnerId !== bet.creatorId && winnerId !== bet.opponentId) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Winner must be one of the bet participants." });
+  }
+
+  const updateData = isCreator
+    ? { creatorSettleVote: winnerId }
+    : { opponentSettleVote: winnerId };
+
+  const updated = await ctx.prisma.bet.update({
+    where: { id: betId },
+    data: updateData,
+    select: { id: true, creatorId: true, opponentId: true, status: true, wagerAmount: true, creatorSettleVote: true, opponentSettleVote: true },
+  });
+
+  const creatorVote = updated.creatorSettleVote;
+  const opponentVote = updated.opponentSettleVote;
+
+  // Both voted and agree → settle
+  if (creatorVote && opponentVote && creatorVote === opponentVote) {
+    await doSettle(ctx.prisma, betId, creatorVote, bet.creatorId, bet.opponentId, bet.wagerAmount);
+    // Notify both
+    await ctx.prisma.notification.createMany({
+      data: [
+        { userId: bet.creatorId, actorId: null, type: NotificationType.BET_SETTLED, entityId: betId, entityType: "bet", message: `Your bet was settled` },
+        { userId: bet.opponentId, actorId: null, type: NotificationType.BET_SETTLED, entityId: betId, entityType: "bet", message: `Your bet was settled` },
+      ],
+    });
+    const final = await ctx.prisma.bet.findUnique({ where: { id: betId }, include: betInclude });
+    return { bet: final, state: "settled" as const };
+  }
+
+  // Both voted but disagree → DISPUTED
+  if (creatorVote && opponentVote && creatorVote !== opponentVote) {
+    await ctx.prisma.bet.update({ where: { id: betId }, data: { status: BetStatus.DISPUTED } });
+    await ctx.prisma.notification.createMany({
+      data: [
+        { userId: bet.creatorId, actorId: bet.opponentId, type: NotificationType.BET_DISPUTED, entityId: betId, entityType: "bet", message: "disagreed on the result — community votes will decide" },
+        { userId: bet.opponentId, actorId: bet.creatorId, type: NotificationType.BET_DISPUTED, entityId: betId, entityType: "bet", message: "disagreed on the result — community votes will decide" },
+      ],
+    });
+    const final = await ctx.prisma.bet.findUnique({ where: { id: betId }, include: betInclude });
+    return { bet: final, state: "disputed" as const };
+  }
+
+  // Only one has voted so far
+  const otherPartyId = isCreator ? bet.opponentId : bet.creatorId;
+  await ctx.prisma.notification.create({
+    data: { userId: otherPartyId, actorId: userId, type: NotificationType.BET_SETTLED, entityId: betId, entityType: "bet", message: "voted on the result — waiting for your vote" },
+  });
+  const final = await ctx.prisma.bet.findUnique({ where: { id: betId }, include: betInclude });
+  return { bet: final, state: "waiting" as const };
+}
 
 function parseOptionalDate(value: string | null | undefined) {
   if (!value) return undefined;
@@ -116,10 +206,15 @@ export const betRouter = router({
   }),
 
   getInboxCount: protectedProcedure.query(async ({ ctx }) => {
-    const count = await ctx.prisma.bet.count({
-      where: { opponentId: ctx.session.user.id, status: BetStatus.PENDING },
-    });
-    return { count };
+    const [betCount, notifCount] = await Promise.all([
+      ctx.prisma.bet.count({
+        where: { opponentId: ctx.session.user.id, status: BetStatus.PENDING },
+      }),
+      ctx.prisma.notification.count({
+        where: { userId: ctx.session.user.id, read: false },
+      }),
+    ]);
+    return { count: betCount + notifCount, betCount, notifCount };
   }),
 
   getMyBets: protectedProcedure.query(async ({ ctx }) => {
@@ -296,51 +391,61 @@ export const betRouter = router({
       return { bet: updated };
     }),
 
+  // Keep old name as alias so existing calls don't break
   settleBet: protectedProcedure
     .input(z.object({ betId: z.string(), winnerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Delegates to castSettleVote logic
+      return castSettleVoteImpl(ctx, input.betId, input.winnerId);
+    }),
+
+  castSettleVote: protectedProcedure
+    .input(z.object({ betId: z.string(), winnerId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return castSettleVoteImpl(ctx, input.betId, input.winnerId);
+    }),
+
+  resolveDispute: protectedProcedure
+    .input(z.object({ betId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
       const bet = await ctx.prisma.bet.findUnique({
         where: { id: input.betId },
-        select: { id: true, creatorId: true, opponentId: true, status: true, wagerAmount: true },
+        select: { id: true, creatorId: true, opponentId: true, status: true, wagerAmount: true, votes: true },
       });
       if (!bet) throw new TRPCError({ code: "NOT_FOUND", message: "Bet not found." });
-      const userId = ctx.session.user.id;
-      if (bet.creatorId !== userId && bet.opponentId !== userId) {
+      if (bet.creatorId !== ctx.session.user.id && bet.opponentId !== ctx.session.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Access denied." });
       }
-      if (bet.status !== BetStatus.ACTIVE) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only active bets can be settled." });
+      if (bet.status !== BetStatus.DISPUTED) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only disputed bets can be resolved this way." });
       }
-      if (input.winnerId !== bet.creatorId && input.winnerId !== bet.opponentId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Winner must be one of the bet participants." });
+      const creatorVotes = bet.votes.filter((v) => v.votedForId === bet.creatorId).length;
+      const opponentVotes = bet.votes.filter((v) => v.votedForId === bet.opponentId).length;
+      // Tied → refund both
+      if (creatorVotes === opponentVotes) {
+        if (bet.wagerAmount > 0) {
+          await ctx.prisma.$transaction([
+            ctx.prisma.user.update({ where: { id: bet.creatorId }, data: { balance: { increment: bet.wagerAmount } } }),
+            ctx.prisma.user.update({ where: { id: bet.opponentId }, data: { balance: { increment: bet.wagerAmount } } }),
+            ctx.prisma.pointTransaction.create({ data: { userId: bet.creatorId, amount: bet.wagerAmount, type: TransactionType.BET_REFUNDED, betId: bet.id, description: "Bet tied — refunded" } }),
+            ctx.prisma.pointTransaction.create({ data: { userId: bet.opponentId, amount: bet.wagerAmount, type: TransactionType.BET_REFUNDED, betId: bet.id, description: "Bet tied — refunded" } }),
+            ctx.prisma.bet.update({ where: { id: input.betId }, data: { status: BetStatus.SETTLED, resolvedAt: new Date() } }),
+          ]);
+        } else {
+          await ctx.prisma.bet.update({ where: { id: input.betId }, data: { status: BetStatus.SETTLED, resolvedAt: new Date() } });
+        }
+        const updated = await ctx.prisma.bet.findUnique({ where: { id: input.betId }, include: betInclude });
+        return { bet: updated, outcome: "tied" as const };
       }
-
-      const loserId = input.winnerId === bet.creatorId ? bet.opponentId : bet.creatorId;
-
-      if (bet.wagerAmount > 0) {
-        const payout = bet.wagerAmount * 2;
-        await ctx.prisma.$transaction([
-          ctx.prisma.user.update({ where: { id: input.winnerId }, data: { balance: { increment: payout } } }),
-          ctx.prisma.pointTransaction.create({
-            data: { userId: input.winnerId, amount: payout, type: TransactionType.BET_WON, betId: bet.id, description: `Bet won` },
-          }),
-          ctx.prisma.pointTransaction.create({
-            data: { userId: loserId, amount: 0, type: TransactionType.BET_LOST, betId: bet.id, description: `Bet lost` },
-          }),
-          ctx.prisma.bet.update({
-            where: { id: input.betId },
-            data: { status: BetStatus.SETTLED, winnerId: input.winnerId, resolvedAt: new Date() },
-          }),
-        ]);
-      } else {
-        await ctx.prisma.bet.update({
-          where: { id: input.betId },
-          data: { status: BetStatus.SETTLED, winnerId: input.winnerId, resolvedAt: new Date() },
-        });
-      }
-
+      const winnerId = creatorVotes > opponentVotes ? bet.creatorId : bet.opponentId;
+      await doSettle(ctx.prisma, bet.id, winnerId, bet.creatorId, bet.opponentId, bet.wagerAmount);
       const updated = await ctx.prisma.bet.findUnique({ where: { id: input.betId }, include: betInclude });
-      return { bet: updated };
+      // Notify both parties
+      const otherPartyId = ctx.session.user.id === bet.creatorId ? bet.opponentId : bet.creatorId;
+      await ctx.prisma.notification.create({
+        data: { userId: otherPartyId, actorId: null, type: NotificationType.BET_SETTLED, entityId: bet.id, entityType: "bet", message: `Your disputed bet was resolved by community vote` },
+      });
+      return { bet: updated, outcome: "settled" as const };
     }),
 
   submitToBet: protectedProcedure

@@ -5,6 +5,7 @@ import Google from "src/icons/Google";
 import Handshake from "src/icons/Handshake";
 import Home from "src/icons/Home";
 import Plus from "src/icons/Plus";
+import Star from "src/icons/Star";
 import Trophy from "src/icons/Trophy";
 
 export const meta = {
@@ -60,5 +61,10 @@ export const menus = [
     name: "Challenges",
     href: "/challenges",
     icons: Trophy,
+  },
+  {
+    name: "Leaderboard",
+    href: "/leaderboard",
+    icons: Star,
   },
 ];

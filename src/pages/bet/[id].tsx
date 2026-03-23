@@ -82,9 +82,23 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
     onSuccess: () => { toast.success("Bet declined."); utils.bet.getBet.invalidate(); utils.bet.getInbox.invalidate(); },
     onError: () => toast.error("Could not decline bet"),
   });
-  const settleMutation = trpc.bet.settleBet.useMutation({
-    onSuccess: () => { toast.success("Bet settled!"); utils.bet.getBet.invalidate(); },
-    onError: () => toast.error("Could not settle bet"),
+  const settleMutation = trpc.bet.castSettleVote.useMutation({
+    onSuccess: (data) => {
+      if (data.state === "settled") toast.success("Both agreed — bet settled!");
+      else if (data.state === "disputed") toast("Votes disagree — community will decide!", { icon: "⚡" });
+      else toast.success("Vote cast — waiting for opponent");
+      utils.bet.getBet.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not cast vote"),
+  });
+
+  const resolveDisputeMutation = trpc.bet.resolveDispute.useMutation({
+    onSuccess: (data) => {
+      if (data.outcome === "tied") toast.success("Tied — both refunded!");
+      else toast.success("Dispute resolved by community vote!");
+      utils.bet.getBet.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not resolve"),
   });
   const visibilityMutation = trpc.bet.updateVisibility.useMutation({
     onSuccess: () => { toast.success("Visibility updated"); utils.bet.getBet.invalidate(); },
@@ -113,7 +127,13 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
     onError: (e) => toast.error(e.message || "Could not submit"),
   });
 
-  const anyLoading = acceptMutation.isLoading || declineMutation.isLoading || settleMutation.isLoading;
+  const anyLoading = acceptMutation.isLoading || declineMutation.isLoading || settleMutation.isLoading || resolveDisputeMutation.isLoading;
+
+  // Derive my own settle vote from bet data
+  const mySettleVote = isCreator ? bet.creatorSettleVote : isOpponent ? bet.opponentSettleVote : null;
+  const otherSettleVote = isCreator ? bet.opponentSettleVote : isOpponent ? bet.creatorSettleVote : null;
+  const hasVoted = !!mySettleVote;
+  const bothVoted = !!bet.creatorSettleVote && !!bet.opponentSettleVote;
 
   return (
     <div className="mx-auto max-w-xl px-4 pb-10 md:px-5">
@@ -258,24 +278,60 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
               </button>
             </div>
           )}
-          {bet.status === "ACTIVE" && (
+          {(bet.status === "ACTIVE" || bet.status === "DISPUTED") && (
             <div className="rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
-              <p className="mb-3 text-sm font-semibold">Settle this bet — who won?</p>
+              {bet.status === "DISPUTED" ? (
+                <>
+                  <p className="mb-1 text-sm font-semibold text-yellow-400">⚡ Disputed</p>
+                  <p className="mb-3 text-xs text-gray-400">
+                    You disagreed on the result. Community votes will decide — or{" "}
+                    <button
+                      disabled={resolveDisputeMutation.isLoading}
+                      onClick={() => resolveDisputeMutation.mutate({ betId: bet.id })}
+                      className="text-primary underline hover:text-white disabled:opacity-50"
+                    >
+                      resolve now
+                    </button>
+                    {" "}({bet._count.votes} community vote{bet._count.votes !== 1 ? "s" : ""} cast).
+                  </p>
+                </>
+              ) : hasVoted ? (
+                <>
+                  <p className="mb-1 text-sm font-semibold">Vote cast</p>
+                  <p className="mb-3 text-xs text-gray-400">
+                    You voted: <span className="font-semibold text-white">
+                      {mySettleVote === bet.creatorId ? bet.creator.name : bet.opponent.name}
+                    </span> won. Waiting for opponent to confirm.
+                  </p>
+                  <p className="text-xs text-gray-500">Change your vote:</p>
+                </>
+              ) : (
+                <p className="mb-3 text-sm font-semibold">Who won?</p>
+              )}
+              {!bothVoted || bet.status === "DISPUTED" ? null : null}
               <div className="flex gap-2">
-                <button
-                  disabled={anyLoading}
-                  onClick={() => settleMutation.mutate({ betId: bet.id, winnerId: bet.creatorId })}
-                  className="flex-1 rounded border border-primary bg-transparent py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white disabled:opacity-50"
-                >
-                  {bet.creator.name ?? "Creator"} won
-                </button>
-                <button
-                  disabled={anyLoading}
-                  onClick={() => settleMutation.mutate({ betId: bet.id, winnerId: bet.opponentId })}
-                  className="flex-1 rounded border border-primary bg-transparent py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white disabled:opacity-50"
-                >
-                  {bet.opponent.name ?? "Opponent"} won
-                </button>
+                {[
+                  { user: bet.creator, label: bet.creator.name ?? "Creator" },
+                  { user: bet.opponent, label: bet.opponent.name ?? "Opponent" },
+                ].map(({ user, label }) => {
+                  const isMyPick = mySettleVote === user.id;
+                  return (
+                    <button
+                      key={user.id}
+                      disabled={anyLoading}
+                      onClick={() => settleMutation.mutate({ betId: bet.id, winnerId: user.id })}
+                      className={`flex flex-1 flex-col items-center gap-1 rounded-lg border py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                        isMyPick
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-[#3f3f3f] text-gray-300 hover:border-gray-300"
+                      }`}
+                    >
+                      <LazyLoadImage src={user.image ?? undefined} className="h-8 w-8 rounded-full" effect="opacity" />
+                      <span>{label}</span>
+                      {isMyPick && <span className="text-[10px] text-primary">Your pick</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

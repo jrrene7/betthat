@@ -166,6 +166,8 @@ model Bet {
   winner       User?              @relation("BetWinner", fields: [winnerId], references: [id], onDelete: SetNull)
   challengeId  String?
   challenge    Challenge?         @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  creatorSettleVote   String?
+  opponentSettleVote  String?
   votes           BetVote[]
   betSubmissions  BetSubmission[]
   transactions    PointTransaction[]
@@ -343,6 +345,8 @@ enum NotificationType {
   CHALLENGE_JOINED
   BET_ACCEPTED
   BET_DECLINED
+  BET_SETTLED
+  BET_DISPUTED
   CHALLENGE_COMPLETED
 }
 

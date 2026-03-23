@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import AppLayout from "src/layouts/AppLayout";
 import Sidebar from "src/components/Sidebar";
 import SubmissionForm from "src/components/Submission/SubmissionForm";
+import CommentThread from "src/components/CommentThread";
 import { trpc } from "src/utils/trpc";
 import { RouterOutputs } from "src/utils/trpc";
 import { calculateCreatedTime } from "src/utils";
@@ -116,6 +117,16 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
   const voteMutation = trpc.bet.castBetVote.useMutation({
     onSuccess: () => { utils.bet.getBet.invalidate(); },
     onError: () => toast.error("Could not cast vote"),
+  });
+
+  const { data: commentsData, isLoading: commentsLoading } = trpc.bet.getComments.useQuery({ betId: bet.id });
+  const addCommentMutation = trpc.bet.addComment.useMutation({
+    onSuccess: () => utils.bet.getComments.invalidate({ betId: bet.id }),
+    onError: (e) => toast.error(e.message || "Could not post comment"),
+  });
+  const deleteCommentMutation = trpc.bet.deleteComment.useMutation({
+    onSuccess: () => utils.bet.getComments.invalidate({ betId: bet.id }),
+    onError: () => toast.error("Could not delete comment"),
   });
 
   const { data: submissionsData } = trpc.bet.getBetSubmissions.useQuery({ betId: bet.id });
@@ -466,6 +477,21 @@ function BetDetail({ bet, currentUserId }: { bet: Bet; currentUserId: string | n
             {bet.visibility === "PRIVATE" && "Only visible to you and your opponent."}
           </p>
         </div>
+      )}
+
+      {/* Comment thread — hidden on private bets */}
+      {bet.visibility !== "PRIVATE" && (
+        <CommentThread
+          comments={commentsData?.comments ?? []}
+          isLoading={commentsLoading}
+          currentUserId={currentUserId}
+          onAdd={async (content, parentId) => {
+            await addCommentMutation.mutateAsync({ betId: bet.id, content, parentId });
+          }}
+          onDelete={async (commentId) => {
+            await deleteCommentMutation.mutateAsync({ commentId });
+          }}
+        />
       )}
     </div>
   );

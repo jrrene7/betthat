@@ -21,10 +21,11 @@ const challengeInclude = {
 
 async function buildFeedItems(
   ctx: any,
-  input: { skip: number; limit: number },
+  input: { skip: number; limit: number; type?: string },
   authorIdFilter?: string[]
 ) {
   const { skip, limit } = input;
+  const type = input.type ?? "all";
   const fetchCount = skip + limit;
 
   const postWhere = {
@@ -43,24 +44,24 @@ async function buildFeedItems(
   };
 
   const [posts, bets, challenges] = await Promise.all([
-    ctx.prisma.post.findMany({
+    (type === "all" || type === "post") ? ctx.prisma.post.findMany({
       where: postWhere,
       include: postInclude,
       orderBy: { createdAt: "desc" },
       take: fetchCount,
-    }),
-    ctx.prisma.bet.findMany({
+    }) : Promise.resolve([]),
+    (type === "all" || type === "bet") ? ctx.prisma.bet.findMany({
       where: betWhere,
       include: betInclude,
       orderBy: { createdAt: "desc" },
       take: fetchCount,
-    }),
-    ctx.prisma.challenge.findMany({
+    }) : Promise.resolve([]),
+    (type === "all" || type === "challenge") ? ctx.prisma.challenge.findMany({
       where: challengeWhere,
       include: challengeInclude,
       orderBy: { createdAt: "desc" },
       take: fetchCount,
-    }),
+    }) : Promise.resolve([]),
   ]);
 
   let likedPostIds = new Set<string>();
@@ -102,11 +103,19 @@ async function buildFeedItems(
 
 export const feedRouter = router({
   getFeed: publicProcedure
-    .input(z.object({ skip: z.number().default(0), limit: z.number().default(10) }))
+    .input(z.object({
+      skip: z.number().default(0),
+      limit: z.number().default(10),
+      type: z.enum(["all", "post", "bet", "challenge"]).default("all"),
+    }))
     .query(async ({ ctx, input }) => buildFeedItems(ctx, input)),
 
   getFollowingFeed: protectedProcedure
-    .input(z.object({ skip: z.number().default(0), limit: z.number().default(10) }))
+    .input(z.object({
+      skip: z.number().default(0),
+      limit: z.number().default(10),
+      type: z.enum(["all", "post", "bet", "challenge"]).default("all"),
+    }))
     .query(async ({ ctx, input }) => {
       const follows = await ctx.prisma.follow.findMany({
         where: { followerId: ctx.session.user.id },

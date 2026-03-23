@@ -1,7 +1,6 @@
 import { router } from "src/server/trpc/trpc";
 import { likeRouter } from "./like";
 import { followRouter } from "./follow";
-import { videoRouter } from "./video";
 import { commentRouter } from "./comment";
 import { postRouter } from "./post";
 import { betRouter } from "./bet";
@@ -13,7 +12,6 @@ import { notificationRouter } from "./notification";
 export const appRouter = router({
     like: likeRouter,
     follow: followRouter,
-    video: videoRouter,
     comment: commentRouter,
     post: postRouter,
     bet: betRouter,

@@ -27,6 +27,43 @@ export const userRouter = router({
       return { betsWon, betsTotal, challengesWon, challengesTotal };
     }),
 
+  search: publicProcedure
+    .input(z.object({ keyword: z.string().trim().min(1).max(100) }))
+    .query(async ({ ctx, input }) => {
+      const q = input.keyword;
+      const [users, bets, challenges] = await Promise.all([
+        ctx.prisma.user.findMany({
+          where: { name: { contains: q, mode: "insensitive" } },
+          select: { id: true, name: true, image: true, balance: true,
+            _count: { select: { followers: true, betsWon: true, challengesWon: true } },
+          },
+          take: 20,
+        }),
+        ctx.prisma.bet.findMany({
+          where: {
+            title: { contains: q, mode: "insensitive" },
+            NOT: { visibility: { in: ["UNLISTED" as const, "PRIVATE" as const] } },
+          },
+          include: { creator: true, opponent: true, winner: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+        ctx.prisma.challenge.findMany({
+          where: {
+            title: { contains: q, mode: "insensitive" },
+            NOT: { visibility: { in: ["UNLISTED" as const, "PRIVATE" as const] } },
+          },
+          include: {
+            creator: true,
+            _count: { select: { participants: true, submissions: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+      ]);
+      return { users, bets, challenges };
+    }),
+
   getLeaderboard: publicProcedure
     .input(z.object({ by: z.enum(["wins", "balance"]).default("wins"), limit: z.number().int().min(1).max(100).default(50) }))
     .query(async ({ ctx, input }) => {

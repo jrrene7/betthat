@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import AppLayout from "src/layouts/AppLayout";
 import Sidebar from "src/components/Sidebar";
 import SubmissionForm from "src/components/Submission/SubmissionForm";
+import CommentThread from "src/components/CommentThread";
 import { trpc } from "src/utils/trpc";
 import { RouterOutputs } from "src/utils/trpc";
 import { calculateCreatedTime } from "src/utils";
@@ -210,6 +211,16 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
       utils.challenge.getChallenge.invalidate();
     },
     onError: (e) => toast.error(e.message || "Could not submit"),
+  });
+
+  const { data: commentsData, isLoading: commentsLoading } = trpc.challenge.getComments.useQuery({ challengeId: challenge.id });
+  const addCommentMutation = trpc.challenge.addComment.useMutation({
+    onSuccess: () => utils.challenge.getComments.invalidate({ challengeId: challenge.id }),
+    onError: (e) => toast.error(e.message || "Could not post comment"),
+  });
+  const deleteCommentMutation = trpc.challenge.deleteComment.useMutation({
+    onSuccess: () => utils.challenge.getComments.invalidate({ challengeId: challenge.id }),
+    onError: () => toast.error("Could not delete comment"),
   });
 
   const canSubmit = isParticipant && ["OPEN", "ACTIVE"].includes(challenge.status);
@@ -571,6 +582,21 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
             {challenge.visibility === "PRIVATE" && "Only visible to participants."}
           </p>
         </div>
+      )}
+
+      {/* Comment thread — hidden on private challenges */}
+      {challenge.visibility !== "PRIVATE" && (
+        <CommentThread
+          comments={commentsData?.comments ?? []}
+          isLoading={commentsLoading}
+          currentUserId={currentUserId}
+          onAdd={async (content, parentId) => {
+            await addCommentMutation.mutateAsync({ challengeId: challenge.id, content, parentId });
+          }}
+          onDelete={async (commentId) => {
+            await deleteCommentMutation.mutateAsync({ commentId });
+          }}
+        />
       )}
     </div>
   );

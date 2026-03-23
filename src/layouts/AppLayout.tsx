@@ -1,4 +1,5 @@
 import Meta from "src/components/Meta";
+import BottomNav from "src/components/BottomNav";
 import { meta } from "../utils/constants";
 import Header from "../components/Header";
 
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: Props) {
       <Meta title={meta.title} description={meta.description} />
       <Header />
       <div className="container mt-[57px] flex">{children}</div>
+      <BottomNav />
     </div>
   );
 }

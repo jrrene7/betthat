@@ -92,7 +92,6 @@ export default function UploadModal() {
   const { data: accountData } = trpc.follow.getAccountSuggestion.useQuery(undefined, {
     enabled: isOpen,
   });
-  const createVideoMutation = trpc.video.createVideo.useMutation();
   const createPostMutation = trpc.post.createPost.useMutation();
   const createBetMutation = trpc.bet.createBet.useMutation();
   const createChallengeMutation = trpc.challenge.createChallenge.useMutation();
@@ -191,16 +190,15 @@ export default function UploadModal() {
     }
     const toastId = toast.loading("Creating post...", { position: "top-center" });
     try {
-      let linkedVideoId: string | null = null;
+      let video: { url: string; width: number; height: number } | null = null;
       let linkedImageUrl: string | null = null;
 
       if (postVideoFile) {
         setIsUploadingPostVideo(true);
-        const videoUrl = await uploadVideoToCloudinary(postVideoFile, toastId);
+        const url = await uploadVideoToCloudinary(postVideoFile, toastId);
         let w = postVideoWidth, h = postVideoHeight;
         if (!w || !h) { const dims = await readVideoDimensions(postVideoFile); w = dims.width; h = dims.height; }
-        const created = await createVideoMutation.mutateAsync({ title: postTitle.trim() || "Post video", videoWidth: w, videoHeight: h, videoUrl });
-        linkedVideoId = created.video.id;
+        video = { url, width: w, height: h };
       } else if (postImageFile) {
         setIsUploadingPostImage(true);
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUD_NAME;
@@ -225,7 +223,7 @@ export default function UploadModal() {
       await createPostMutation.mutateAsync({
         title: postTitle.trim() || null,
         content: postContent.trim(),
-        videoId: linkedVideoId,
+        video,
         imageUrl: linkedImageUrl,
       });
       toast.dismiss(toastId);
@@ -324,7 +322,7 @@ export default function UploadModal() {
         <div className="overflow-y-auto px-5 py-5">
           {mode === "post" && (
             <SubmitPost
-              isLoading={isUploadingPostVideo || isUploadingPostImage || createVideoMutation.isLoading || createPostMutation.isLoading}
+              isLoading={isUploadingPostVideo || isUploadingPostImage || createPostMutation.isLoading}
               postTitle={postTitle}
               postContent={postContent}
               postVideoPreview={postVideoPreview}

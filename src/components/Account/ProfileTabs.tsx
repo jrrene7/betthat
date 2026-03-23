@@ -1,13 +1,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { LazyLoadImage } from "react-lazy-load-image-component";
-import VideoSmall from "src/components/Video/VideoSmall";
 import PostCard from "src/components/Feed/PostCard";
 import { Profile } from "src/types";
 import { trpc } from "src/utils/trpc";
 import { calculateCreatedTime } from "src/utils";
 
-type Tab = "videos" | "posts" | "bets" | "challenges" | "likes";
+type Tab = "posts" | "bets" | "challenges" | "likes";
 
 interface Props {
   profile: Profile;
@@ -24,7 +23,7 @@ function statusColor(status: string) {
 }
 
 export default function ProfileTabs({ profile }: Props) {
-  const [tab, setTab] = useState<Tab>("videos");
+  const [tab, setTab] = useState<Tab>("posts");
 
   const { data: postsData, isLoading: postsLoading } = trpc.post.getPosts.useQuery(
     { authorId: profile.id, limit: 20 },
@@ -47,7 +46,6 @@ export default function ProfileTabs({ profile }: Props) {
   );
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: "videos",     label: "Videos" },
     { key: "posts",      label: "Posts" },
     { key: "bets",       label: "Bets" },
     { key: "challenges", label: "Challenges" },
@@ -56,13 +54,13 @@ export default function ProfileTabs({ profile }: Props) {
 
   return (
     <>
-      {/* Tab bar */}
-      <ul className="flex w-full border-b border-[#2f2f2f]">
+      {/* Tab bar — horizontally scrollable on mobile */}
+      <ul className="scrollbar-none flex w-full overflow-x-auto border-b border-[#2f2f2f]">
         {TABS.map(({ key, label }) => (
           <li
             key={key}
             onClick={() => setTab(key)}
-            className={`cursor-pointer px-8 py-3 text-sm font-semibold transition-colors ${
+            className={`flex-shrink-0 cursor-pointer px-5 py-3 text-sm font-semibold transition-colors md:px-8 ${
               tab === key
                 ? "border-b-2 border-primary text-primary"
                 : "text-gray-400 hover:text-gray-200"
@@ -74,26 +72,29 @@ export default function ProfileTabs({ profile }: Props) {
       </ul>
 
       <div className="px-4 pb-10 xl:px-0">
-        {/* Videos */}
-        {tab === "videos" && (
-          <>
-            {profile.video.length === 0 && (
-              <p className="mt-8 text-center text-sm text-gray-500">No videos yet.</p>
-            )}
-            <div className="grid grid-cols-3 gap-1 pt-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {profile.video.map((video) => (
-                <VideoSmall key={video.id} video={video} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Posts */}
+        {/* Posts (includes standalone videos) */}
         {tab === "posts" && (
           <div className="mx-auto mt-4 max-w-xl">
             {postsLoading && <p className="py-8 text-center text-sm text-gray-500">Loading...</p>}
-            {!postsLoading && postsData?.posts.length === 0 && (
+            {!postsLoading && postsData?.posts.length === 0 && profile.video.length === 0 && (
               <p className="py-8 text-center text-sm text-gray-500">No posts yet.</p>
+            )}
+            {/* Standalone videos not attached to a post */}
+            {profile.video.length > 0 && (
+              <div className="mb-4 grid grid-cols-3 gap-1 pt-2 md:grid-cols-4">
+                {profile.video.map((video) => (
+                  <video
+                    key={video.id}
+                    src={video.videoUrl}
+                    muted
+                    className="aspect-square w-full cursor-pointer rounded-lg bg-black object-cover"
+                    onClick={(e) => {
+                      const el = e.currentTarget;
+                      el.paused ? el.play() : el.pause();
+                    }}
+                  />
+                ))}
+              </div>
             )}
             <div className="flex flex-col gap-4">
               {postsData?.posts.map((post) => (

@@ -14,17 +14,17 @@ export default function SearchInput() {
   return (
     <form
       onSubmit={onSearchSubmit}
-      className="hidden w-[361px] items-center rounded-full bg-[#2F2F2F] pr-4 lg:flex"
+      className="flex w-[180px] items-center rounded-full bg-[#2F2F2F] pr-3 sm:w-[260px] lg:w-[361px]"
     >
       <input
         value={textSearch}
         onChange={(e) => setTextSearch(e.target.value)}
-        className="flex-1 bg-transparent py-2.5 pl-4"
-        placeholder="Search accounts and videos"
+        className="flex-1 bg-transparent py-2 pl-4 text-sm"
+        placeholder="Search accounts, bets..."
       />
-      <div className="cursor-pointer border-l border-[#484848] pl-2">
+      <button type="submit" className="cursor-pointer border-l border-[#484848] pl-2">
         <Search />
-      </div>
+      </button>
     </form>
   );
 }

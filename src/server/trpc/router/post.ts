@@ -14,36 +14,41 @@ export const postRouter = router({
       z.object({
         title: z.string().trim().max(150).optional().nullable(),
         content: z.string().trim().max(5000).optional().nullable(),
-        videoId: z.string().optional().nullable(),
         imageUrl: z.string().url().optional().nullable(),
         isPublished: z.boolean().optional(),
+        // Video is created server-side as part of the post — never passed as a pre-existing videoId
+        video: z.object({
+          url: z.string().url(),
+          width: z.number().int().positive(),
+          height: z.number().int().positive(),
+        }).optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const title = input.title?.trim();
-      const videoId = input.videoId ?? undefined;
+      const title = input.title?.trim() || null;
       const content = input.content?.trim() ?? "";
+      const imageUrl = input.imageUrl ?? null;
 
-      const imageUrl = input.imageUrl ?? undefined;
-
-      if (!content && !videoId && !imageUrl) {
+      if (!content && !input.video && !imageUrl) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Post must include text, an image, or a video.",
         });
       }
 
-      if (videoId) {
-        const ownedVideo = await ctx.prisma.video.findFirst({
-          where: { id: videoId, userId: ctx.session.user.id },
-          select: { id: true },
+      // Create the Video record inline — it only ever exists as part of a post
+      let videoId: string | undefined;
+      if (input.video) {
+        const video = await ctx.prisma.video.create({
+          data: {
+            title: title ?? "Post video",
+            videoUrl: input.video.url,
+            width: input.video.width,
+            height: input.video.height,
+            userId: ctx.session.user.id,
+          },
         });
-        if (!ownedVideo) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Invalid video selected for post.",
-          });
-        }
+        videoId = video.id;
       }
 
       const post = await ctx.prisma.post.create({

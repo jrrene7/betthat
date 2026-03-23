@@ -522,4 +522,66 @@ export const challengeRouter = router({
       });
       return { ok: true };
     }),
+
+  getComments: publicProcedure
+    .input(z.object({ challengeId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const comments = await ctx.prisma.challengeComment.findMany({
+        where: { challengeId: input.challengeId, parentId: null },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          replies: {
+            include: { user: { select: { id: true, name: true, image: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+      return { comments };
+    }),
+
+  addComment: protectedProcedure
+    .input(z.object({
+      challengeId: z.string(),
+      content: z.string().trim().min(1).max(2000),
+      parentId: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await ctx.prisma.challenge.findUnique({
+        where: { id: input.challengeId },
+        select: { id: true, visibility: true },
+      });
+      if (!challenge) throw new TRPCError({ code: "NOT_FOUND" });
+      if (challenge.visibility === "PRIVATE") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot comment on a private challenge." });
+      }
+      const comment = await ctx.prisma.challengeComment.create({
+        data: {
+          challengeId: input.challengeId,
+          userId: ctx.session.user.id,
+          content: input.content,
+          parentId: input.parentId ?? null,
+        },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          replies: { include: { user: { select: { id: true, name: true, image: true } } } },
+        },
+      });
+      return { comment };
+    }),
+
+  deleteComment: protectedProcedure
+    .input(z.object({ commentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.challengeComment.findUnique({
+        where: { id: input.commentId },
+        select: { userId: true },
+      });
+      if (!comment) throw new TRPCError({ code: "NOT_FOUND" });
+      if (comment.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await ctx.prisma.challengeComment.delete({ where: { id: input.commentId } });
+      return { ok: true };
+    }),
 });

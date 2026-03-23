@@ -528,4 +528,66 @@ export const betRouter = router({
       });
       return { ok: true };
     }),
+
+  getComments: publicProcedure
+    .input(z.object({ betId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const comments = await ctx.prisma.betComment.findMany({
+        where: { betId: input.betId, parentId: null },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          replies: {
+            include: { user: { select: { id: true, name: true, image: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+      return { comments };
+    }),
+
+  addComment: protectedProcedure
+    .input(z.object({
+      betId: z.string(),
+      content: z.string().trim().min(1).max(2000),
+      parentId: z.string().optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const bet = await ctx.prisma.bet.findUnique({
+        where: { id: input.betId },
+        select: { id: true, visibility: true },
+      });
+      if (!bet) throw new TRPCError({ code: "NOT_FOUND" });
+      if (bet.visibility === "PRIVATE") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot comment on a private bet." });
+      }
+      const comment = await ctx.prisma.betComment.create({
+        data: {
+          betId: input.betId,
+          userId: ctx.session.user.id,
+          content: input.content,
+          parentId: input.parentId ?? null,
+        },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          replies: { include: { user: { select: { id: true, name: true, image: true } } } },
+        },
+      });
+      return { comment };
+    }),
+
+  deleteComment: protectedProcedure
+    .input(z.object({ commentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.betComment.findUnique({
+        where: { id: input.commentId },
+        select: { userId: true },
+      });
+      if (!comment) throw new TRPCError({ code: "NOT_FOUND" });
+      if (comment.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await ctx.prisma.betComment.delete({ where: { id: input.commentId } });
+      return { ok: true };
+    }),
 });

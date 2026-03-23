@@ -55,6 +55,8 @@ model User {
   betsReceived  Bet[]          @relation("BetOpponent")
   betsWon       Bet[]          @relation("BetWinner")
   betVotes      BetVote[]
+  betComments   BetComment[]
+  challengeComments ChallengeComment[]
   challenges    Challenge[]    @relation("ChallengeCreator")
   challengesWon Challenge[]    @relation("ChallengeWinner")
   challengeParticipations ChallengeParticipant[]
@@ -170,6 +172,7 @@ model Bet {
   opponentSettleVote  String?
   votes           BetVote[]
   betSubmissions  BetSubmission[]
+  comments        BetComment[]
   transactions    PointTransaction[]
   dueAt        DateTime?
   resolvedAt   DateTime?
@@ -211,6 +214,7 @@ model Challenge {
   participants ChallengeParticipant[]
   bets         Bet[]
   submissions  ChallengeSubmission[]
+  comments     ChallengeComment[]
   startsAt     DateTime?
   endsAt       DateTime?
   completedAt  DateTime?
@@ -268,6 +272,42 @@ model BetSubmission {
 
   @@index([betId])
   @@index([userId])
+}
+
+model BetComment {
+  id        String       @id @default(cuid()) @map("_id")
+  betId     String
+  bet       Bet          @relation(fields: [betId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  parentId  String?
+  parent    BetComment?  @relation("BetCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   BetComment[] @relation("BetCommentReplies")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt()
+
+  @@index([betId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model ChallengeComment {
+  id          String             @id @default(cuid()) @map("_id")
+  challengeId String
+  challenge   Challenge          @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String
+  parentId    String?
+  parent      ChallengeComment?  @relation("ChallengeCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     ChallengeComment[] @relation("ChallengeCommentReplies")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt()
+
+  @@index([challengeId])
+  @@index([userId])
+  @@index([parentId])
 }
 
 model SubmissionVote {

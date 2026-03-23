@@ -65,7 +65,7 @@ export default function ChallengeCard({ challenge }: Props) {
         <Avatar src={challenge.creator.image} className="h-6 w-6 rounded-full" />
         <span className="text-sm text-gray-300">{challenge.creator.name ?? "Unknown"}</span>
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
-          <span>{challenge._count.participants} participants</span>
+          <span>{challenge.participants.length} participants</span>
           {challenge._count.submissions > 0 && (
             <span>{challenge._count.submissions} submissions</span>
           )}

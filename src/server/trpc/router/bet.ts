@@ -2,6 +2,7 @@ import { BetStatus, NotificationType, PrismaClient, TransactionType, Visibility 
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "src/server/trpc/trpc";
 import { z } from "zod";
+import logger from "src/server/logger";
 
 type PrismaCtx = { prisma: PrismaClient; session: { user: { id: string } } };
 
@@ -13,6 +14,7 @@ async function doSettle(
   opponentId: string,
   wagerAmount: number,
 ) {
+  logger.info("bet.settle", { betId, winnerId, wagerAmount });
   const loserId = winnerId === creatorId ? opponentId : creatorId;
   if (wagerAmount > 0) {
     const payout = wagerAmount * 2;
@@ -73,6 +75,7 @@ async function castSettleVoteImpl(ctx: PrismaCtx, betId: string, winnerId: strin
 
   // Both voted but disagree → DISPUTED
   if (creatorVote && opponentVote && creatorVote !== opponentVote) {
+    logger.warn("bet.disputed", { betId, creatorVote, opponentVote });
     await ctx.prisma.bet.update({ where: { id: betId }, data: { status: BetStatus.DISPUTED } });
     await ctx.prisma.notification.createMany({
       data: [
@@ -153,6 +156,7 @@ export const betRouter = router({
         },
         include: betInclude,
       });
+      logger.info("bet.created", { betId: bet.id, creatorId: ctx.session.user.id, opponentId: input.opponentId, wagerAmount: input.wagerAmount });
       // Notify opponent
       await ctx.prisma.notification.create({
         data: {
@@ -206,15 +210,18 @@ export const betRouter = router({
   }),
 
   getInboxCount: protectedProcedure.query(async ({ ctx }) => {
-    const [betCount, notifCount] = await Promise.all([
+    const [betCount, notifCount, challengeInviteCount] = await Promise.all([
       ctx.prisma.bet.count({
         where: { opponentId: ctx.session.user.id, status: BetStatus.PENDING },
       }),
       ctx.prisma.notification.count({
         where: { userId: ctx.session.user.id, read: false },
       }),
+      ctx.prisma.challengeParticipant.count({
+        where: { userId: ctx.session.user.id, inviteStatus: "PENDING" },
+      }),
     ]);
-    return { count: betCount + notifCount, betCount, notifCount };
+    return { count: betCount + notifCount + challengeInviteCount, betCount, notifCount, challengeInviteCount };
   }),
 
   getMyBets: protectedProcedure.query(async ({ ctx }) => {
@@ -343,6 +350,7 @@ export const betRouter = router({
         });
       }
 
+      logger.info("bet.accepted", { betId: input.betId, opponentId: ctx.session.user.id, wagerAmount: bet.wagerAmount });
       const updated = await ctx.prisma.bet.findUnique({ where: { id: input.betId }, include: betInclude });
       // Notify creator that bet was accepted
       await ctx.prisma.notification.create({
@@ -372,6 +380,7 @@ export const betRouter = router({
       if (bet.status !== BetStatus.PENDING) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only pending bets can be declined." });
       }
+      logger.info("bet.declined", { betId: input.betId, opponentId: ctx.session.user.id });
       const updated = await ctx.prisma.bet.update({
         where: { id: input.betId },
         data: { status: BetStatus.DECLINED },

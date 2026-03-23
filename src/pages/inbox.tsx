@@ -13,7 +13,8 @@ import { calculateCreatedTime } from "src/utils";
 
 type Bet = RouterOutputs["bet"]["getInbox"]["bets"][number];
 type Notification = RouterOutputs["notification"]["getNotifications"]["notifications"][number];
-type InboxTab = "bets" | "notifications";
+type ChallengeInvite = RouterOutputs["challenge"]["getPendingInvites"]["invites"][number];
+type InboxTab = "bets" | "challenges" | "notifications";
 
 const NOTIF_ICON: Record<string, string> = {
   BET_RECEIVED: "🤝",
@@ -22,6 +23,8 @@ const NOTIF_ICON: Record<string, string> = {
   CHALLENGE_INVITED: "🏆",
   CHALLENGE_JOINED: "👋",
   CHALLENGE_COMPLETED: "🎉",
+  CHALLENGE_INVITE_ACCEPTED: "✅",
+  CHALLENGE_INVITE_DECLINED: "❌",
 };
 
 function statusColor(status: string) {
@@ -38,11 +41,11 @@ function BetInboxItem({ bet }: { bet: Bet }) {
   const utils = trpc.useContext();
 
   const acceptMutation = trpc.bet.acceptBet.useMutation({
-    onSuccess: () => { toast.success("Bet accepted!"); utils.bet.getInbox.invalidate(); },
+    onSuccess: () => { toast.success("Bet accepted!"); utils.bet.getInbox.invalidate(); utils.bet.getInboxCount.invalidate(); },
     onError: () => toast.error("Could not accept bet"),
   });
   const declineMutation = trpc.bet.declineBet.useMutation({
-    onSuccess: () => { toast.success("Bet declined."); utils.bet.getInbox.invalidate(); },
+    onSuccess: () => { toast.success("Bet declined."); utils.bet.getInbox.invalidate(); utils.bet.getInboxCount.invalidate(); },
     onError: () => toast.error("Could not decline bet"),
   });
 
@@ -105,6 +108,89 @@ function BetInboxItem({ bet }: { bet: Bet }) {
   );
 }
 
+function ChallengeInviteItem({ invite }: { invite: ChallengeInvite }) {
+  const utils = trpc.useContext();
+  const challenge = invite.challenge;
+
+  const acceptMutation = trpc.challenge.acceptInvite.useMutation({
+    onSuccess: () => {
+      toast.success("Challenge accepted!");
+      utils.challenge.getPendingInvites.invalidate();
+      utils.bet.getInboxCount.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Could not accept invite"),
+  });
+  const declineMutation = trpc.challenge.declineInvite.useMutation({
+    onSuccess: () => {
+      toast.success("Invite declined.");
+      utils.challenge.getPendingInvites.invalidate();
+      utils.bet.getInboxCount.invalidate();
+    },
+    onError: () => toast.error("Could not decline invite"),
+  });
+
+  const isLoading = acceptMutation.isLoading || declineMutation.isLoading;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Link href={`/account/${challenge.creator.id}`}>
+            <Avatar src={challenge.creator.image} className="h-10 w-10 rounded-full" />
+          </Link>
+          <div>
+            <p className="text-sm font-semibold">
+              <Link href={`/account/${challenge.creator.id}`} className="hover:underline">
+                {challenge.creator.name ?? "Unknown"}
+              </Link>{" "}
+              <span className="font-normal text-gray-400">invited you to a challenge</span>
+            </p>
+            <p className="text-xs text-gray-500">{calculateCreatedTime(invite.joinedAt)}</p>
+          </div>
+        </div>
+        <span className="flex-shrink-0 rounded bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-400">
+          {challenge.status}
+        </span>
+      </div>
+
+      <div>
+        <Link href={`/challenge/${challenge.id}`}>
+          <p className="font-semibold hover:underline">{challenge.title}</p>
+        </Link>
+        {challenge.description && (
+          <p className="mt-1 text-sm text-gray-400 line-clamp-2">{challenge.description}</p>
+        )}
+        <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+          <span>{challenge._count.participants} participant{challenge._count.participants !== 1 ? "s" : ""}</span>
+          {challenge.wagerAmount > 0 && (
+            <span className="font-semibold text-yellow-400">{challenge.wagerAmount.toLocaleString()} pts buy-in</span>
+          )}
+          {challenge.endsAt && (
+            <span>Ends {new Date(challenge.endsAt).toLocaleDateString()}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          disabled={isLoading}
+          onClick={() => declineMutation.mutate({ challengeId: challenge.id })}
+          className="flex-1 rounded border border-[rgba(255,255,255,0.2)] bg-transparent py-2 text-sm font-semibold text-white hover:bg-[#2f2f2f] disabled:opacity-50"
+        >
+          Decline
+        </button>
+        <button
+          disabled={isLoading}
+          onClick={() => acceptMutation.mutate({ challengeId: challenge.id })}
+          className="flex-1 rounded bg-primary py-2 text-sm font-semibold text-white hover:bg-[#e0354f] disabled:opacity-50"
+        >
+          {acceptMutation.isLoading ? "Accepting..." : challenge.wagerAmount > 0 ? `Accept (${challenge.wagerAmount.toLocaleString()} pts)` : "Accept"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function NotifItem({ notif }: { notif: Notification }) {
   const entityHref =
     notif.entityType === "bet" ? `/bet/${notif.entityId}` :
@@ -144,52 +230,55 @@ export default function InboxPage() {
   const utils = trpc.useContext();
 
   const { data: betsData, isLoading: betsLoading } = trpc.bet.getInbox.useQuery();
+  const { data: invitesData, isLoading: invitesLoading } = trpc.challenge.getPendingInvites.useQuery();
   const { data: notifsData, isLoading: notifsLoading } = trpc.notification.getNotifications.useQuery();
 
   const markAllRead = trpc.notification.markAllRead.useMutation({
     onSuccess: () => utils.notification.getNotifications.invalidate(),
   });
 
-  const pendingCount = betsData?.bets.length ?? 0;
+  const pendingBetCount = betsData?.bets.length ?? 0;
+  const pendingInviteCount = invitesData?.invites.length ?? 0;
   const unreadCount = notifsData?.unreadCount ?? 0;
+
+  const TABS: { key: InboxTab; label: string; badge: number }[] = [
+    { key: "bets",          label: "Bets",       badge: pendingBetCount },
+    { key: "challenges",    label: "Challenges",  badge: pendingInviteCount },
+    { key: "notifications", label: "Notifications", badge: unreadCount },
+  ];
 
   return (
     <AppLayout>
       <Sidebar />
       <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
-        <div className="mx-auto max-w-xl px-4 pb-10 md:px-5">
+        <div className="mx-auto max-w-xl px-4 pb-24 md:px-5 lg:pb-10">
           <h1 className="mb-6 text-2xl font-bold">Inbox</h1>
 
           {/* Tabs */}
           <div className="mb-6 flex border-b border-[#2f2f2f]">
-            {(["bets", "notifications"] as InboxTab[]).map((t) => (
+            {TABS.map(({ key, label, badge }) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
-                  tab === t ? "border-b-2 border-primary text-primary" : "text-gray-400 hover:text-gray-200"
+                key={key}
+                onClick={() => setTab(key)}
+                className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
+                  tab === key ? "border-b-2 border-primary text-primary" : "text-gray-400 hover:text-gray-200"
                 }`}
               >
-                {t === "bets" ? "Pending Bets" : "Notifications"}
-                {t === "bets" && pendingCount > 0 && (
+                {label}
+                {badge > 0 && (
                   <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-xs font-bold text-white">
-                    {pendingCount}
-                  </span>
-                )}
-                {t === "notifications" && unreadCount > 0 && (
-                  <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-xs font-bold text-white">
-                    {unreadCount}
+                    {badge}
                   </span>
                 )}
               </button>
             ))}
           </div>
 
-          {/* Bets tab */}
+          {/* Pending Bets tab */}
           {tab === "bets" && (
             <>
               {betsLoading && <p className="py-8 text-sm text-gray-400">Loading...</p>}
-              {!betsLoading && pendingCount === 0 && (
+              {!betsLoading && pendingBetCount === 0 && (
                 <p className="py-8 text-sm text-gray-400">
                   No pending bets. When someone challenges you, it will appear here.
                 </p>
@@ -197,6 +286,23 @@ export default function InboxPage() {
               <div className="flex flex-col gap-4">
                 {betsData?.bets.map((bet) => (
                   <BetInboxItem key={bet.id} bet={bet} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Challenge Invites tab */}
+          {tab === "challenges" && (
+            <>
+              {invitesLoading && <p className="py-8 text-sm text-gray-400">Loading...</p>}
+              {!invitesLoading && pendingInviteCount === 0 && (
+                <p className="py-8 text-sm text-gray-400">
+                  No pending challenge invites.
+                </p>
+              )}
+              <div className="flex flex-col gap-4">
+                {invitesData?.invites.map((invite) => (
+                  <ChallengeInviteItem key={invite.id} invite={invite} />
                 ))}
               </div>
             </>

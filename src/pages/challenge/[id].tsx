@@ -134,7 +134,9 @@ function SubmissionCard({ submission, currentUserId, challengeId }: {
 function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; currentUserId: string | null }) {
   const utils = trpc.useContext();
   const isCreator = currentUserId === challenge.creatorId;
-  const isParticipant = challenge.participants.some((p) => p.userId === currentUserId);
+  const acceptedParticipants = challenge.participants.filter((p) => p.inviteStatus === "ACCEPTED");
+  const pendingParticipants = challenge.participants.filter((p) => p.inviteStatus === "PENDING");
+  const isParticipant = acceptedParticipants.some((p) => p.userId === currentUserId);
   const isTerminal = ["COMPLETED", "CANCELLED"].includes(challenge.status);
   const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -271,11 +273,12 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
             )}
             {challenge.wagerAmount > 0 && (
               <p className="mt-3 text-sm font-semibold text-yellow-400">
-                {challenge.wagerAmount.toLocaleString()} pts buy-in · pot: {(challenge.wagerAmount * challenge._count.participants).toLocaleString()} pts
+                {challenge.wagerAmount.toLocaleString()} pts buy-in · pot: {(challenge.wagerAmount * acceptedParticipants.length).toLocaleString()} pts
               </p>
             )}
             <div className="mt-3 flex gap-4 text-xs text-gray-500">
-              <span>{challenge._count.participants} participants</span>
+              <span>{acceptedParticipants.length} participant{acceptedParticipants.length !== 1 ? "s" : ""}</span>
+              {pendingParticipants.length > 0 && <span>{pendingParticipants.length} pending invite{pendingParticipants.length !== 1 ? "s" : ""}</span>}
               <span>{challenge._count.submissions} submissions</span>
               <span>{challenge._count.bets} bets</span>
             </div>
@@ -340,22 +343,39 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
       </div>
 
       {/* Participants */}
-      {challenge.participants.length > 0 && (
+      {(acceptedParticipants.length > 0 || pendingParticipants.length > 0) && (
         <div className="mb-6 rounded-lg border border-[#2f2f2f] bg-[#1a1a1a] p-4">
-          <h3 className="mb-3 text-sm font-semibold text-gray-400">Participants</h3>
-          <div className="flex flex-wrap gap-3">
-            {challenge.participants.map((p) => (
-              <Link key={p.id} href={`/account/${p.user.id}`} className="flex items-center gap-2 hover:opacity-80">
-                <Avatar src={p.user.image} className="h-8 w-8 rounded-full" />
-                <span className="text-sm">
-                  {p.user.name ?? "Unknown"}
-                  {p.userId === challenge.creatorId && (
-                    <span className="ml-1 text-xs text-gray-500">(creator)</span>
-                  )}
-                </span>
-              </Link>
-            ))}
-          </div>
+          {acceptedParticipants.length > 0 && (
+            <>
+              <h3 className="mb-3 text-sm font-semibold text-gray-400">Participants</h3>
+              <div className="flex flex-wrap gap-3">
+                {acceptedParticipants.map((p) => (
+                  <Link key={p.id} href={`/account/${p.user.id}`} className="flex items-center gap-2 hover:opacity-80">
+                    <Avatar src={p.user.image} className="h-8 w-8 rounded-full" />
+                    <span className="text-sm">
+                      {p.user.name ?? "Unknown"}
+                      {p.userId === challenge.creatorId && (
+                        <span className="ml-1 text-xs text-gray-500">(creator)</span>
+                      )}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+          {pendingParticipants.length > 0 && (
+            <div className={acceptedParticipants.length > 0 ? "mt-4 border-t border-[#2f2f2f] pt-4" : ""}>
+              <h3 className="mb-3 text-sm font-semibold text-gray-500">Invited (pending)</h3>
+              <div className="flex flex-wrap gap-3">
+                {pendingParticipants.map((p) => (
+                  <Link key={p.id} href={`/account/${p.user.id}`} className="flex items-center gap-2 opacity-60 hover:opacity-80">
+                    <Avatar src={p.user.image} className="h-8 w-8 rounded-full" />
+                    <span className="text-sm">{p.user.name ?? "Unknown"}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -404,7 +424,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
             <div>
               <p className="mb-3 text-sm font-semibold">Who won?</p>
               <div className="mb-3 flex flex-col gap-2">
-                {challenge.participants.map((p: Participant) => (
+                {acceptedParticipants.map((p: Participant) => (
                   <button
                     key={p.id}
                     disabled={completeMutation.isLoading}
@@ -440,7 +460,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
           </div>
           {challenge.wagerAmount > 0 && (
             <p className="mt-1 text-sm text-yellow-400">
-              Won {(challenge.wagerAmount * challenge._count.participants).toLocaleString()} pts
+              Won {(challenge.wagerAmount * acceptedParticipants.length).toLocaleString()} pts
             </p>
           )}
         </div>
@@ -484,7 +504,7 @@ function ChallengeDetail({ challenge, currentUserId }: { challenge: Challenge; c
           <p className="mb-3 text-sm font-semibold">Invite Participants</p>
           <div className="mb-3 max-h-48 overflow-y-auto flex flex-col gap-2">
             {suggestionsData.accounts
-              .filter((u) => !challenge.participants.some((p) => p.userId === u.id))
+              .filter((u) => !challenge.participants.some((p) => p.userId === u.id && p.inviteStatus !== "DECLINED"))
               .map((user) => {
                 const selected = selectedInviteIds.includes(user.id);
                 return (

@@ -16,7 +16,8 @@ const betInclude = {
 
 const challengeInclude = {
   creator: true,
-  _count: { select: { participants: true, submissions: true } },
+  participants: { where: { inviteStatus: "ACCEPTED" as const }, select: { id: true } },
+  _count: { select: { submissions: true } },
 } as const;
 
 async function buildFeedItems(

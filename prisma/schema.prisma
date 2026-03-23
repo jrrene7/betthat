@@ -227,15 +227,17 @@ model Challenge {
 }
 
 model ChallengeParticipant {
-  id          String    @id @default(cuid()) @map("_id")
-  challengeId String
-  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt    DateTime  @default(now())
+  id           String        @id @default(cuid()) @map("_id")
+  challengeId  String
+  challenge    Challenge     @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviteStatus InviteStatus  @default(ACCEPTED)
+  joinedAt     DateTime      @default(now())
 
   @@unique([challengeId, userId])
   @@index([userId])
+  @@index([inviteStatus])
 }
 
 model ChallengeSubmission {
@@ -383,11 +385,19 @@ enum NotificationType {
   BET_RECEIVED
   CHALLENGE_INVITED
   CHALLENGE_JOINED
+  CHALLENGE_INVITE_ACCEPTED
+  CHALLENGE_INVITE_DECLINED
   BET_ACCEPTED
   BET_DECLINED
   BET_SETTLED
   BET_DISPUTED
   CHALLENGE_COMPLETED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
 
 enum TransactionType {

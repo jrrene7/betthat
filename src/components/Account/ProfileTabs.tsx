@@ -204,7 +204,7 @@ export default function ProfileTabs({ profile }: Props) {
                     <p className="line-clamp-2 text-sm text-gray-400">{challenge.description}</p>
                   )}
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>{challenge._count.participants} participants</span>
+                    <span>{challenge.participants.length} participants</span>
                     {challenge._count.submissions > 0 && (
                       <span>{challenge._count.submissions} submissions</span>
                     )}

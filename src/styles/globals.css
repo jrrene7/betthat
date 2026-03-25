@@ -20,7 +20,9 @@
 }
 
 body {
-  background-color: #121212;
+  background-color: #0f0f0f;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
 }
 
 input,
@@ -43,7 +45,10 @@ img {
 
 /* width */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
+}
+@media (max-width: 1024px) {
+  ::-webkit-scrollbar { display: none; }
 }
 
 /* Track */

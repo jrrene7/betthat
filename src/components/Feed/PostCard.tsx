@@ -74,7 +74,7 @@ export default function PostCard({ post }: Props) {
   }
 
   return (
-    <div className="w-full border-b border-[#2f2f2f] py-5 pr-2">
+    <div className="w-full border-b border-[#1e1e1e] px-4 py-4">
       <div className="flex w-full items-start">
         {/* Avatar */}
         <Link href={`/account/${author.id}`} className="hidden h-[56px] w-[56px] flex-shrink-0 lg:block">
@@ -112,7 +112,7 @@ export default function PostCard({ post }: Props) {
 
           {/* Attached image */}
           {post.imageUrl && (
-            <div className="mt-3 overflow-hidden rounded-xl border border-[#2f2f2f]">
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#1e1e1e]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={post.imageUrl}
@@ -124,7 +124,7 @@ export default function PostCard({ post }: Props) {
 
           {/* Attached video */}
           {post.video && (
-            <div className="mt-3 overflow-hidden rounded-xl border border-[#2f2f2f]">
+            <div className="mt-3 overflow-hidden rounded-xl border border-[#1e1e1e]">
               <video
                 src={post.video.videoUrl}
                 controls
@@ -169,7 +169,7 @@ export default function PostCard({ post }: Props) {
 
           {/* Inline comment thread */}
           {showComments && (
-            <div className="mt-4 border-t border-[#2f2f2f] pt-4">
+            <div className="mt-4 border-t border-[#1e1e1e] pt-4">
               {commentsLoading && (
                 <p className="py-2 text-xs text-gray-500">Loading comments...</p>
               )}

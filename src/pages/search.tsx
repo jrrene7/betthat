@@ -160,7 +160,7 @@ export default function SearchPage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px]">
+      <div className="flex-1 lg:ml-[348px]">
         {/* Tab bar */}
         <ul className="flex border-b border-[#2f2f2f]">
           {TABS.map(({ key, label }) => (

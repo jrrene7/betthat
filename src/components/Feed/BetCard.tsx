@@ -10,22 +10,13 @@ interface Props {
   bet: FeedBetItem["data"];
 }
 
-function visibilityBadge(visibility: string) {
-  switch (visibility) {
-    case "PUBLIC":   return { label: "Public",   cls: "bg-green-500/20 text-green-400" };
-    case "UNLISTED": return { label: "Unlisted", cls: "bg-gray-500/20 text-gray-400" };
-    case "PRIVATE":  return { label: "Private",  cls: "bg-orange-500/20 text-orange-400" };
-    default:         return { label: visibility,  cls: "bg-gray-500/20 text-gray-400" };
-  }
-}
-
 function statusColor(status: string) {
   switch (status) {
-    case "PENDING":  return "bg-yellow-500/20 text-yellow-400";
-    case "ACTIVE":   return "bg-green-500/20 text-green-400";
-    case "SETTLED":  return "bg-blue-500/20 text-blue-400";
-    case "DECLINED": return "bg-red-500/20 text-red-400";
-    default:         return "bg-gray-500/20 text-gray-400";
+    case "PENDING":  return "bg-yellow-500/15 text-yellow-400";
+    case "ACTIVE":   return "bg-green-500/15 text-green-400";
+    case "SETTLED":  return "bg-blue-500/15 text-blue-400";
+    case "DECLINED": return "bg-red-500/15 text-red-400";
+    default:         return "bg-gray-500/15 text-gray-400";
   }
 }
 
@@ -33,56 +24,54 @@ export default function BetCard({ bet }: Props) {
   return (
     <Link
       href={`/bet/${bet.id}`}
-      className="block w-full border-b border-[#2f2f2f] py-5 pr-2 transition-colors hover:bg-white/[0.02]"
+      className="block w-full border-b border-[#1e1e1e] px-4 py-4 transition-colors active:bg-white/[0.03]"
     >
-      {/* Label row */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-gray-500">
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-          </svg>
-          <span className="text-xs font-semibold uppercase tracking-wide">Bet</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {(() => { const v = visibilityBadge(bet.visibility); return (
-            <span className={`rounded px-2 py-0.5 text-xs font-semibold ${v.cls}`}>{v.label}</span>
-          ); })()}
-          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${statusColor(bet.status)}`}>
-            {bet.status}
-          </span>
-          <span className="text-xs text-gray-500">{calculateCreatedTime(bet.createdAt)}</span>
-        </div>
+      {/* Header row: type label + status + time */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">Bet</span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusColor(bet.status)}`}>
+          {bet.status}
+        </span>
+        <span className="ml-auto text-[11px] text-gray-600">{calculateCreatedTime(bet.createdAt)}</span>
       </div>
 
-      {/* Title + description */}
-      <h3 className="mb-1 text-[16px] font-bold leading-snug">{bet.title}</h3>
+      {/* Title */}
+      <h3 className="mb-3 text-[15px] font-bold leading-snug">{bet.title}</h3>
       {bet.description && (
-        <p className="mb-3 line-clamp-2 text-sm text-gray-400">{bet.description}</p>
+        <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-gray-500">{bet.description}</p>
       )}
 
-      {/* Participants */}
+      {/* VS matchup */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <Avatar src={bet.creator.image} className="h-7 w-7 rounded-full" />
-          <span className="text-sm font-semibold">{bet.creator.name ?? "Unknown"}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Avatar src={bet.creator.image} className="h-8 w-8 flex-shrink-0 rounded-full" />
+          <span className="truncate text-sm font-semibold">{bet.creator.name ?? "Unknown"}</span>
         </div>
-        <span className="text-xs font-bold text-primary">VS</span>
-        <div className="flex items-center gap-1.5">
-          <Avatar src={bet.opponent.image} className="h-7 w-7 rounded-full"
-          />
-          <span className="text-sm font-semibold">{bet.opponent.name ?? "Unknown"}</span>
+
+        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <span className="text-[11px] font-black text-primary">VS</span>
         </div>
-        {bet.wagerAmount > 0 && (
-          <span className="ml-auto text-xs font-semibold text-yellow-400">
-            {bet.wagerAmount} pts each
-          </span>
-        )}
+
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          <span className="truncate text-sm font-semibold">{bet.opponent.name ?? "Unknown"}</span>
+          <Avatar src={bet.opponent.image} className="h-8 w-8 flex-shrink-0 rounded-full" />
+        </div>
       </div>
 
-      {bet.status === "SETTLED" && bet.winner && (
-        <p className="mt-2 text-xs font-semibold text-green-400">
-          Winner: {bet.winner.name ?? "Unknown"}
-        </p>
+      {/* Footer */}
+      {(bet.wagerAmount > 0 || (bet.status === "SETTLED" && bet.winner)) && (
+        <div className="mt-3 flex items-center gap-3">
+          {bet.wagerAmount > 0 && (
+            <span className="rounded-full bg-yellow-500/10 px-2.5 py-1 text-[11px] font-bold text-yellow-400">
+              {bet.wagerAmount.toLocaleString()} pts each
+            </span>
+          )}
+          {bet.status === "SETTLED" && bet.winner && (
+            <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-[11px] font-bold text-green-400">
+              Winner: {bet.winner.name ?? "Unknown"}
+            </span>
+          )}
+        </div>
       )}
     </Link>
   );

@@ -25,9 +25,9 @@ export default function Main() {
   });
 
   return (
-    <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
+    <div className="flex-1 lg:ml-[348px] lg:mt-5">
       {/* Type filter tabs */}
-      <div className="flex border-b border-[#2f2f2f]">
+      <div className="flex border-b border-[#1e1e1e]">
         {FEED_TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -43,12 +43,12 @@ export default function Main() {
         ))}
       </div>
 
-      <div className="flex flex-col items-center pb-24 md:items-start md:px-5 lg:pb-5">
+      <div className="flex flex-col pb-24 lg:pb-5">
         {isLoading && (
           <div className="w-full">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="w-full border-b border-[#2f2f2f] py-5">
-                <div className="flex gap-3 px-4 md:px-0">
+              <div key={i} className="w-full border-b border-[#1e1e1e] py-4">
+                <div className="flex gap-3 px-4">
                   <div className="h-[56px] w-[56px] flex-shrink-0 animate-pulse rounded-full bg-[#2f2f2f]" />
                   <div className="flex-1 space-y-3">
                     <div className="h-3 w-1/3 animate-pulse rounded bg-[#2f2f2f]" />

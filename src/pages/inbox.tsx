@@ -250,7 +250,7 @@ export default function InboxPage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
+      <div className="flex-1 lg:ml-[348px] lg:mt-5">
         <div className="mx-auto max-w-xl px-4 pb-24 md:px-5 lg:pb-10">
           <h1 className="mb-6 text-2xl font-bold">Inbox</h1>
 

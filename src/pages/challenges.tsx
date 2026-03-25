@@ -12,9 +12,9 @@ export default function ChallengesPage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
-        <div className="md:px-5">
-          <h1 className="py-5 text-xl font-bold">Challenges</h1>
+      <div className="flex-1 lg:ml-[348px] lg:mt-5">
+        <div>
+          <h1 className="px-4 py-5 text-xl font-bold">Challenges</h1>
           {isLoading && <p className="py-8 text-sm text-gray-400">Loading...</p>}
           {isError && <p className="py-8 text-sm text-red-400">Could not load challenges.</p>}
           {!isLoading && !isError && data?.challenges.length === 0 && (

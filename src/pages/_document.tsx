@@ -7,6 +7,14 @@ export default function Document() {
       <body>
         <Main />
         <NextScript />
+        {/* Honeypot: hidden from real users, crawled by bots */}
+        {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
+        <a
+          href="/api/trap"
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{ display: "none" }}
+        />
       </body>
     </Html>
   );

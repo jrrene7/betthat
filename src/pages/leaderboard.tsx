@@ -51,7 +51,7 @@ export default function LeaderboardPage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
+      <div className="flex-1 lg:ml-[348px] lg:mt-5">
         <div className="mx-auto max-w-xl px-4 pb-10 md:px-5">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="text-2xl font-bold">Leaderboard</h1>

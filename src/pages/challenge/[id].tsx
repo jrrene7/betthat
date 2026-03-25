@@ -611,7 +611,7 @@ export default function ChallengePage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
+      <div className="flex-1 lg:ml-[348px] lg:mt-5">
         {isLoading && (
           <div className="mx-auto max-w-xl px-4 py-8 md:px-5">
             <p className="text-sm text-gray-400">Loading challenge...</p>

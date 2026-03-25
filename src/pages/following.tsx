@@ -20,8 +20,8 @@ export default function FollowingPage() {
   return (
     <AppLayout>
       <Sidebar />
-      <div className="ml-[48px] flex-1 lg:ml-[348px] lg:mt-5">
-        <div className="flex flex-col items-center pb-5 md:items-start md:px-5">
+      <div className="flex-1 lg:ml-[348px] lg:mt-5">
+        <div className="flex flex-col pb-5">
           {status === "unauthenticated" && (
             <div className="py-16 text-center">
               <p className="text-gray-400">Sign in to see posts from people you follow.</p>

@@ -5,10 +5,31 @@ export const userRouter = router({
   getMe: protectedProcedure.query(async ({ ctx }) => {
     const user = await ctx.prisma.user.findUnique({
       where: { id: ctx.session.user.id },
-      select: { id: true, name: true, image: true, balance: true },
+      select: { id: true, name: true, image: true, bio: true, balance: true },
     });
     return { user };
   }),
+
+  updateProfile: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(50).optional(),
+        bio: z.string().trim().max(200).nullable().optional(),
+        image: z.string().url().nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.update({
+        where: { id: ctx.session.user.id },
+        data: {
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.bio !== undefined && { bio: input.bio }),
+          ...(input.image !== undefined && { image: input.image }),
+        },
+        select: { id: true, name: true, image: true, bio: true, balance: true },
+      });
+      return { user };
+    }),
 
   getProfileStats: publicProcedure
     .input(z.object({ userId: z.string() }))

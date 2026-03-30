@@ -20,6 +20,8 @@
     "@trpc/next": "10.19.1",
     "@trpc/react-query": "10.19.1",
     "@trpc/server": "10.19.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
     "axios": "^1.13.6",
     "next": "^16.1.6",
     "next-auth": "^4.24.13",

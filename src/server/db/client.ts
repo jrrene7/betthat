@@ -1,3 +1,5 @@
+// Validate env vars at server startup — throws immediately if anything is missing
+import "src/env";
 import { PrismaClient } from "@prisma/client";
 import logger from "src/server/logger";
 

@@ -8,6 +8,8 @@ import NextNProgress from "nextjs-progressbar";
 import { trpc } from "src/utils/trpc";
 import { UploadModalProvider } from "src/context/UploadModalContext";
 import UploadModal from "src/components/Upload/UploadModal";
+import { UserProvider } from "src/context/UserContext";
+import EditProfileModal from "src/components/EditProfileModal";
 
 interface Props {
   session: Session;
@@ -16,12 +18,15 @@ interface Props {
 function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps<Props>) {
   return (
     <SessionProvider session={session}>
-      <UploadModalProvider>
-        <NextNProgress options={{ showSpinner: false }} />
-        <Component {...pageProps} />
-        <UploadModal />
-        <Toaster />
-      </UploadModalProvider>
+      <UserProvider>
+        <UploadModalProvider>
+          <NextNProgress options={{ showSpinner: false }} />
+          <Component {...pageProps} />
+          <UploadModal />
+          <EditProfileModal />
+          <Toaster />
+        </UploadModalProvider>
+      </UserProvider>
     </SessionProvider>
   );
 }

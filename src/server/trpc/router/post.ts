@@ -142,9 +142,14 @@ export const postRouter = router({
       return { comment };
     }),
 
-  getLikedPosts: publicProcedure
+  getLikedPosts: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Only allow users to view their own liked posts
+      if (ctx.session.user.id !== input.userId) {
+        return { posts: [] };
+      }
+
       const likes = await ctx.prisma.postLike.findMany({
         where: { userId: input.userId },
         include: {

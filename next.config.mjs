@@ -27,9 +27,9 @@ const config = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval needed by Next.js dev & some libs
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https:",
-              "media-src 'self' blob: https:",
-              "connect-src 'self' https:",
+              "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",
+              "media-src 'self' blob: https://res.cloudinary.com",
+              "connect-src 'self' https://capital-owl-84547.upstash.io https://api.cloudinary.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },

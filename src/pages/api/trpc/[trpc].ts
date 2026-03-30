@@ -3,7 +3,15 @@ import { createContext } from "src/server/trpc/context";
 import { appRouter } from "src/server/trpc/router/_app";
 import { PRODUCTION } from "src/utils";
 
-// export API handler
+// Cap request body size to prevent large-payload abuse
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "1mb",
+    },
+  },
+};
+
 export default createNextApiHandler({
   router: appRouter,
   createContext,

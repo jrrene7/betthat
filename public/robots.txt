@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /api/
+Disallow: /api/trap
+Disallow: /sign-in
+Disallow: /inbox
+Disallow: /upload
+
+Allow: /

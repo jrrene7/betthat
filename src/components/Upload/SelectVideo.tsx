@@ -31,7 +31,7 @@ export default function SelectVideo({ onVideoFileChange}: Props) {
             Up to 30 minutes
           </p>
           <p className="my-2 text-[13px] font-normal text-[rgba(255,255,255,0.75)]">
-            Less than 30 MB
+            Up to 100 MB
           </p>
         </div>
       </div>

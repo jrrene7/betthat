@@ -43,9 +43,11 @@ const TABS: { mode: CreateMode; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
+const MAX_VIDEO_MB = 100;
+
 function validateVideoFile(file: File) {
   if (!file.type.startsWith("video")) return "Please select a video file";
-  if (file.size / 1_000_000 > 30) return "File too large, max 30MB.";
+  if (file.size / 1_000_000 > MAX_VIDEO_MB) return `File too large, max ${MAX_VIDEO_MB}MB.`;
   return null;
 }
 
@@ -125,22 +127,79 @@ export default function UploadModal() {
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || process.env.NEXT_PUBLIC_UPLOAD_PRESET;
     if (!cloudName || !uploadPreset) throw new Error("Cloudinary is not configured");
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", uploadPreset);
+    const CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB per chunk
+    const SINGLE_UPLOAD_LIMIT = 100 * 1024 * 1024; // 100 MB — Cloudinary unsigned limit
+    const totalSize = file.size;
 
-    const response = await axios.post(
-      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
-      formData,
-      {
-        onUploadProgress: ({ loaded, total }) => {
-          const pct = Math.round((loaded * 100) / (total || 1));
-          toast.loading(`${pct}% uploaded...`, { id: toastId });
-        },
-      }
+    // Files ≤ 100MB — single request
+    if (totalSize <= SINGLE_UPLOAD_LIMIT) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+        formData,
+        {
+          onUploadProgress: ({ loaded, total }) => {
+            const pct = Math.round((loaded * 100) / (total || 1));
+            toast.loading(`${pct}% uploaded...`, { id: toastId });
+          },
+        }
+      );
+      const uploadedUrl = response.data?.secure_url ?? response.data?.url ?? "";
+      if (!uploadedUrl) throw new Error("No URL returned");
+      return getCloudinaryPlaybackUrl(uploadedUrl);
+    }
+
+    // Files > 100MB — signed chunked upload
+    const signRes = await axios.post<{ timestamp: number; signature: string; apiKey: string }>(
+      "/api/cloudinary-sign"
     );
+    const { timestamp, signature, apiKey } = signRes.data;
 
-    const uploadedUrl = response.data?.secure_url ?? response.data?.url ?? "";
+    const uniqueUploadId = crypto.randomUUID();
+    let start = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let lastResponse: any = null;
+
+    while (start < totalSize) {
+      const end = Math.min(start + CHUNK_SIZE, totalSize);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append("file", chunk, file.name);
+      formData.append("api_key", apiKey);
+      formData.append("timestamp", String(timestamp));
+      formData.append("signature", signature);
+
+      let response;
+      try {
+        response = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+          formData,
+          {
+            headers: {
+              "X-Unique-Upload-Id": uniqueUploadId,
+              "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
+            },
+            onUploadProgress: ({ loaded, total: chunkTotal }) => {
+              const chunkBytes = (loaded / (chunkTotal || 1)) * (end - start);
+              const pct = Math.round(((start + chunkBytes) / totalSize) * 100);
+              toast.loading(`${pct}% uploaded...`, { id: toastId });
+            },
+          }
+        );
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { data?: unknown } };
+        console.error("Cloudinary chunk error:", JSON.stringify(axiosErr.response?.data));
+        throw err;
+      }
+
+      lastResponse = response.data;
+      start = end;
+    }
+
+    const uploadedUrl = lastResponse?.secure_url ?? lastResponse?.url ?? "";
     if (!uploadedUrl) throw new Error("No URL returned");
     return getCloudinaryPlaybackUrl(uploadedUrl);
   }

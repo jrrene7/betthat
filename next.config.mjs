@@ -1,3 +1,5 @@
+const isProd = process.env.NODE_ENV === "production";
+
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: true,
@@ -24,7 +26,8 @@ const config = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval needed by Next.js dev & some libs
+              "script-src 'self' 'unsafe-inline'" +
+                (isProd ? "" : " 'unsafe-eval'"), // unsafe-eval needed by Next.js dev & some libs
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",

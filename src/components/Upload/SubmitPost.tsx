@@ -120,7 +120,7 @@ export default function SubmitPost({
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-gray-300 group-hover:text-white">Add a video</p>
-            <p className="mt-0.5 text-xs text-gray-500">MP4 or WebM · max 30MB</p>
+            <p className="mt-0.5 text-xs text-gray-500">MP4 or WebM · max 100MB</p>
           </div>
           <input onChange={onPostVideoChange} type="file" accept="video/*" className="hidden" />
         </label>
